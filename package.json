@@ -6,7 +6,15 @@
   "scripts": {
     "start": "node server.js"
   },
-  "keywords": ["game", "canvas", "pixel-art", "snowball"],
+  "keywords": [
+    "game",
+    "canvas",
+    "pixel-art",
+    "snowball"
+  ],
   "author": "",
-  "license": "ISC"
+  "license": "ISC",
+  "dependencies": {
+    "ws": "^8.22.0"
+  }
 }

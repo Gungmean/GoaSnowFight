@@ -51,6 +51,12 @@
         <!-- 메인 렌더링 캔버스 (1672 x 940) -->
         <canvas id="game-canvas"></canvas>
 
+        <!-- 매칭 시작 카운트다운 오버레이 -->
+        <div id="match-countdown-overlay" class="hidden">
+          <div id="countdown-title" class="countdown-title">1:1 눈싸움 대전 매칭 완료!</div>
+          <div id="countdown-number" class="countdown-number">3</div>
+        </div>
+
         <!-- 인게임 하단 통합 HUD (경기장 아래쪽 남색 바 영역에 완벽 고정) -->
         <div id="hud-bottom">
           <!-- 1. 좌측: 1P 플레이어 상태 (항상 왼쪽) -->
@@ -190,14 +196,14 @@
             <div class="mode-icon">⚡</div>
             <div class="mode-title">빠른 매칭</div>
             <div class="mode-desc">온라인의 다른 눈싸움 상대와 자동으로 1:1 매칭됩니다.</div>
-            <div class="mode-tag tag-wait">멀티 기능 준비 중</div>
+            <div class="mode-tag tag-ready">온라인 1:1 대전</div>
           </div>
 
           <div id="btn-mode-room" class="mode-card">
             <div class="mode-icon">🔑</div>
             <div class="mode-title">방 코드로 매칭</div>
             <div class="mode-desc">비공개 방을 만들거나 6자리 코드를 입력하여 친구와 1:1 대전합니다.</div>
-            <div class="mode-tag tag-wait">멀티 기능 준비 중</div>
+            <div class="mode-tag tag-ready">비공개 방 대전</div>
           </div>
         </div>
       </div>
@@ -265,11 +271,10 @@
         </div>
         <div class="modal-body match-body">
           <div class="spinner-pixel">❄️</div>
-          <div class="match-status-title">상대 플레이어를 찾는 중입니다...</div>
+          <div class="match-status-title">눈싸움 상대를 찾고 있습니다...</div>
           <div class="match-time">경과 시간: <span id="match-timer-text">00:00</span></div>
           <p class="match-desc">
-            ※ 현재 멀티플레이 WebSocket 서버 연동 준비 단계입니다.<br>
-            먼저 <b>훈련장</b>에서 조작과 샷을 자유롭게 테스트해보세요!
+            다른 플레이어가 빠른 매칭을 누르면 자동으로 1:1 대전이 시작됩니다.
           </p>
           <button id="btn-cancel-match" class="pixel-btn secondary-btn">매칭 취소</button>
         </div>
@@ -289,6 +294,11 @@
           <div class="room-action-section">
             <h3>방 생성하기</h3>
             <p>비공개 방을 만들고 친구에게 6자리 코드를 공유하세요.</p>
+            <div id="created-room-box" class="created-room-box hidden">
+              <div class="code-label">생성된 방 코드:</div>
+              <div id="created-room-code" class="code-display">------</div>
+              <div class="waiting-hint">친구가 코드를 입력하고 입장하기를 기다리는 중...</div>
+            </div>
             <button id="btn-create-room" class="pixel-btn primary-btn">새 방 만들기</button>
           </div>
           <hr class="pixel-divider">
@@ -312,7 +322,9 @@
   <script src="js/snowball.js"></script>
   <script src="js/skills.js"></script>
   <script src="js/player.js"></script>
+  <script src="js/remotePlayer.js"></script>
   <script src="js/bot.js"></script>
+  <script src="js/network.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>

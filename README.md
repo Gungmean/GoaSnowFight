@@ -16,15 +16,27 @@
 
 ---
 
+---
+
+## 🌐 1:1 실시간 멀티플레이 기능 (NEW)
+- **철권식 1P 좌측 고정 시점 (Spatial Mirroring)**: 1P든 2P든 모든 플레이어는 항상 본인 화면 기준 왼쪽(1P) 진영에서 플레이하며, 서버가 상대방의 좌표와 각도를 거울 대칭 반전시켜 자연스러운 대전 경험을 제공합니다.
+- **빠른 매칭 (Quick Match)**: 매칭 대기열에 등록된 상대와 즉시 1:1 자동 매칭
+- **방 코드로 매칭 (Private Room)**: 6자리 고유 방 코드를 생성하거나 공유받아 친구와 1:1 비공개 대전
+- **완벽한 상태 동기화**: 실시간 위치/모션 보간(LERP), 눈덩이 투척 궤적, 스킬(트리플 샷, 빙벽 방벽, 메가 눈폭탄), 회피 구르기 무적 판정, 하트 HP 동기화
+
+---
+
 ## ⚙️ 로컬 실행 방법
 1. 저장소를 클론하거나 다운로드합니다.
-2. `start_server.bat`을 더블 클릭합니다.
-   - 브라우저(`http://localhost:3000`)가 자동으로 열리며 즉시 플레이할 수 있습니다.
-   - 또는 터미널에서 `node server.js` 입력
+2. 의존성을 설치합니다: `npm install`
+3. `start_server.bat`을 더블 클릭하거나 터미널에서 `node server.js`를 실행합니다.
+4. 브라우저에서 `http://localhost:3000`에 접속합니다.
+   - **멀티플레이 테스트**: 브라우저 탭 2개를 열어 하나는 방 생성, 다른 하나는 코드로 입장하거나 둘 다 빠른 매칭을 누르면 1:1 대전이 바로 시작됩니다!
 
 ---
 
 ## 🛠️ 기술 스택
 - **Front-end**: HTML5 Canvas, Vanilla JavaScript (ES6+), CSS3 Pixel Art Layout
 - **Audio**: Web Audio API Retro 8-bit Sound Synthesizer
-- **Server**: Node.js HTTP & WebSocket Server
+- **Server / Network**: Node.js HTTP Server, WebSocket (`ws`), Realtime Coordinate Mirroring Engine
+

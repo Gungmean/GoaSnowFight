@@ -74,16 +74,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     enterTrainingMode();
   });
 
+  // 닉네임 생성기 (로컬스토리지 보관)
+  function getPlayerNickname() {
+    let name = localStorage.getItem('snow_player_name');
+    if (!name) {
+      const adjectives = ['눈꽃', '얼음', '질풍', '겨울', '눈사람', '북극곰', '펭귄', '하얀'];
+      const nouns = ['마스터', '스나이퍼', '장인', '대장', '고수', '헌터', '기사'];
+      const randAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+      const randNoun = nouns[Math.floor(Math.random() * nouns.length)];
+      const randNum = Math.floor(10 + Math.random() * 90);
+      name = `${randAdj}${randNoun}_${randNum}`;
+      localStorage.setItem('snow_player_name', name);
+    }
+    return name;
+  }
+
+  // 네트워크 방 생성 및 에러 콜백 등록
+  game.network.onRoomCreated = (roomCode) => {
+    const createdBox = document.getElementById('created-room-box');
+    const codeElem = document.getElementById('created-room-code');
+    const btnCreate = document.getElementById('btn-create-room');
+    if (codeElem) codeElem.innerText = roomCode;
+    if (createdBox) createdBox.classList.remove('hidden');
+    if (btnCreate) btnCreate.classList.add('hidden');
+  };
+
+  game.network.onError = (errMsg) => {
+    alert(`[매칭 안내] ${errMsg}`);
+  };
+
+  // 매칭 시작 시 검색 타이머 정지 래핑
+  const baseMatchStart = game.network.onMatchStart;
+  game.network.onMatchStart = (data) => {
+    stopMatchSearchTimer();
+    if (baseMatchStart) baseMatchStart(data);
+  };
+
   // 3. 모드: "빠른 매칭"
   btnModeQuickMatch.addEventListener('click', () => {
     window.sounds.playClick();
     modalGameModes.classList.add('hidden');
     modalQuickMatch.classList.remove('hidden');
     startMatchSearchTimer();
+    game.network.joinQueue(getPlayerNickname());
   });
 
   btnCancelMatch.addEventListener('click', () => {
     window.sounds.playClick();
+    game.network.leaveQueue();
     modalQuickMatch.classList.add('hidden');
     stopMatchSearchTimer();
   });
@@ -93,28 +131,33 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.sounds.playClick();
     modalGameModes.classList.add('hidden');
     modalRoomCode.classList.remove('hidden');
+    // 방 생성 박스 초기화
+    const createdBox = document.getElementById('created-room-box');
+    const btnCreate = document.getElementById('btn-create-room');
+    if (createdBox) createdBox.classList.add('hidden');
+    if (btnCreate) btnCreate.classList.remove('hidden');
   });
 
   btnCloseRoom.addEventListener('click', () => {
     window.sounds.playClick();
+    game.network.cancelRoom();
     modalRoomCode.classList.add('hidden');
   });
 
   document.getElementById('btn-create-room')?.addEventListener('click', () => {
     window.sounds.playClick();
-    const code = Math.floor(100000 + Math.random() * 900000);
-    document.getElementById('room-code-input').value = code;
-    alert(`방이 생성되었습니다! 방 코드: [${code}]\n(멀티플레이 통신 서버가 연결되면 상대방이 입장할 수 있습니다)`);
+    game.network.createRoom(getPlayerNickname());
   });
 
   document.getElementById('btn-join-room')?.addEventListener('click', () => {
     window.sounds.playClick();
-    const code = document.getElementById('room-code-input').value.trim();
-    if (!code) {
-      alert('방 코드를 입력해주세요!');
+    const codeInput = document.getElementById('room-code-input');
+    const code = codeInput ? codeInput.value.trim() : '';
+    if (!code || code.length !== 6) {
+      alert('6자리 방 코드를 정확히 입력해주세요!');
       return;
     }
-    alert(`방 [${code}]에 참가를 요청했습니다.\n(멀티플레이 서버 업데이트 후 정식 대전 가능)`);
+    game.network.joinRoom(code, getPlayerNickname());
   });
 
   // 5. "스킬 편성" 클릭 -> 스킬 덱 모달 열기
@@ -162,6 +205,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   btnBackToTitle.addEventListener('click', () => {
     window.sounds.playClick();
     game.stop();
+    stopMatchSearchTimer();
     gameScreen.classList.add('hidden');
     titleScreen.classList.remove('hidden');
 
@@ -192,6 +236,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   }
+  window.requestGameFullscreen = requestGameFullscreen;
 
   // 10. 전체화면 토글
   const btnFullscreen = document.getElementById('btn-fullscreen');
@@ -224,8 +269,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     titleScreen.classList.add('hidden');
     gameScreen.classList.remove('hidden');
     game.resize();
-    game.reset();
-    game.start();
+    game.startTraining();
   }
 
   // 매칭 검색 타이머 UI
@@ -272,9 +316,19 @@ document.addEventListener('DOMContentLoaded', async () => {
       updateSlotCooldown(slotE, skE.currentCooldown, skE.cooldown, p.cost >= skE.cost);
       updateSlotCooldown(slotRmb, skRmb.currentCooldown, skRmb.cooldown, p.cost >= skRmb.cost);
 
-      // 4. 플레이어 & 봇 하트 UI 갱신
+      // 4. 플레이어 & 봇/상대방 하트 UI 갱신
       renderHearts(playerHeartsContainer, p.hp, p.maxHp);
-      renderHearts(botHeartsContainer, b.hp, b.maxHp);
+      if (game.mode === 'MULTIPLAYER' && game.opponent) {
+        renderHearts(botHeartsContainer, game.opponent.hp, game.opponent.maxHp);
+        if (botNameLabel && botNameLabel.innerText !== game.opponent.name) {
+          botNameLabel.innerText = game.opponent.name;
+        }
+      } else {
+        renderHearts(botHeartsContainer, b.hp, b.maxHp);
+        if (botNameLabel && botNameLabel.innerText !== b.name) {
+          botNameLabel.innerText = b.name;
+        }
+      }
     }
     requestAnimationFrame(updateHUD);
   }

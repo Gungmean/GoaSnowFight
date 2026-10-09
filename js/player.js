@@ -143,6 +143,7 @@ class Player {
 
     this.triggerThrowMotion();
     this.chargeRatio = 0;
+    return sb;
   }
 
   triggerThrowMotion() {

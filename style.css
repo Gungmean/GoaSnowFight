@@ -878,3 +878,76 @@ html, body {
   color: #ffffff;
   outline: none;
 }
+
+/* 방 코드 표시 박스 */
+.created-room-box {
+  background: #020617;
+  border: 2px dashed #facc15;
+  border-radius: 6px;
+  padding: 12px;
+  text-align: center;
+  margin-bottom: 12px;
+}
+
+.code-label {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.code-display {
+  font-size: 28px;
+  font-weight: bold;
+  letter-spacing: 6px;
+  color: #facc15;
+  margin: 6px 0;
+  text-shadow: 0 0 10px rgba(250, 204, 21, 0.5);
+}
+
+.waiting-hint {
+  font-size: 12px;
+  color: #38bdf8;
+  animation: pulseHint 1.5s infinite;
+}
+
+@keyframes pulseHint {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; color: #facc15; }
+}
+
+/* 매칭 성공 카운트다운 오버레이 */
+#match-countdown-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(10, 15, 30, 0.85);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.countdown-number {
+  font-size: 90px;
+  font-weight: bold;
+  color: #facc15;
+  text-shadow: 0 0 30px rgba(250, 204, 21, 0.8), 4px 4px 0 #000;
+  animation: countBounce 0.9s ease infinite;
+}
+
+@keyframes countBounce {
+  0% { transform: scale(1.4); opacity: 0; }
+  30% { transform: scale(1); opacity: 1; }
+  80% { transform: scale(1); opacity: 1; }
+  100% { transform: scale(0.9); opacity: 0; }
+}
+
+.countdown-title {
+  font-size: 24px;
+  color: #ffffff;
+  margin-bottom: 16px;
+  text-shadow: 2px 2px 0 #000;
+}
