@@ -76,8 +76,24 @@ class Player {
     this.aimY = 450;
     this.isMouseDown = false;
 
+    // 모바일 가상 조이스틱 입력 상태
+    this.joystickX = 0;
+    this.joystickY = 0;
+    this.hasJoystickInput = false;
+
     // 스킬 매니저
     this.skillManager = new SkillManager(this);
+  }
+
+  setJoystick(x, y) {
+    this.joystickX = x;
+    this.joystickY = y;
+    this.hasJoystickInput = Math.hypot(x, y) > 0.05;
+    if (this.hasJoystickInput && !this.isRolling && !this.isDead) {
+      if (!this.isCharging && Math.abs(x) > 0.15) {
+        this.facing = x > 0 ? 1 : -1;
+      }
+    }
   }
 
   handleKeyDown(key) {
@@ -163,13 +179,18 @@ class Player {
     this.cost -= 1;
     this.currentRollCooldown = this.rollCooldown;
 
-    // 구르는 방향 결정: WASD 입력 방향 (없으면 조준 방향)
+    // 구르는 방향 결정: 조이스틱 또는 WASD 입력 방향 (없으면 조준/바라보는 방향)
     let dx = 0;
     let dy = 0;
-    if (this.keys.d) dx += 1;
-    if (this.keys.a) dx -= 1;
-    if (this.keys.s) dy += 1;
-    if (this.keys.w) dy -= 1;
+    if (this.hasJoystickInput && Math.hypot(this.joystickX, this.joystickY) > 0.1) {
+      dx = this.joystickX;
+      dy = this.joystickY;
+    } else {
+      if (this.keys.d) dx += 1;
+      if (this.keys.a) dx -= 1;
+      if (this.keys.s) dy += 1;
+      if (this.keys.w) dy -= 1;
+    }
 
     if (dx === 0 && dy === 0) {
       dx = this.facing;
@@ -312,22 +333,35 @@ class Player {
         this.facing = this.aimX >= this.x ? 1 : -1;
       }
     } else {
-      // 일반 이동 (WASD)
+      // 일반 이동 (WASD or 조이스틱)
       let mx = 0;
       let my = 0;
-      if (this.keys.d) mx += 1;
-      if (this.keys.a) mx -= 1;
-      if (this.keys.s) my += 1;
-      if (this.keys.w) my -= 1;
+      let speedScale = 1;
 
-      const len = Math.hypot(mx, my);
-      if (len > 0) {
-        mx /= len;
-        my /= len;
+      if (this.hasJoystickInput) {
+        mx = this.joystickX;
+        my = this.joystickY;
+        const jLen = Math.hypot(mx, my);
+        speedScale = Math.min(1, Math.max(0.2, jLen));
+        if (jLen > 0) {
+          mx /= jLen;
+          my /= jLen;
+        }
+      } else {
+        if (this.keys.d) mx += 1;
+        if (this.keys.a) mx -= 1;
+        if (this.keys.s) my += 1;
+        if (this.keys.w) my -= 1;
+
+        const len = Math.hypot(mx, my);
+        if (len > 0) {
+          mx /= len;
+          my /= len;
+        }
       }
 
       // 차징 중이면 이동 속도 45%로 감소
-      let curSpeed = this.baseSpeed;
+      let curSpeed = this.baseSpeed * speedScale;
       if (this.isCharging) {
         curSpeed *= 0.45;
       }

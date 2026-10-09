@@ -951,3 +951,414 @@ html, body {
   margin-bottom: 16px;
   text-shadow: 2px 2px 0 #000;
 }
+
+/* ==========================================================================
+   7. 모바일 가상 조이스틱 & 액션 패드 (Touch Controls)
+   ========================================================================== */
+.mobile-controls {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 25;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.mobile-controls.hidden {
+  display: none !important;
+}
+
+/* 7-1. 좌측 이동 가상 조이스틱 영역 */
+.joystick-zone {
+  position: absolute;
+  bottom: 85px;
+  left: 20px;
+  width: 220px;
+  height: 220px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.joystick-base {
+  position: absolute;
+  bottom: 25px;
+  left: 25px;
+  width: 130px;
+  height: 130px;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.45) 80%, rgba(56, 189, 248, 0.25) 100%);
+  border: 3px solid rgba(56, 189, 248, 0.55);
+  border-radius: 50%;
+  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), inset 0 0 12px rgba(15, 23, 42, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  pointer-events: none;
+}
+
+.joystick-base.active {
+  border-color: #38bdf8;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.75), inset 0 0 16px rgba(56, 189, 248, 0.3);
+}
+
+.joystick-knob {
+  position: absolute;
+  width: 54px;
+  height: 54px;
+  background: radial-gradient(circle at 35% 35%, #7dd3fc 0%, #0284c7 65%, #0369a1 100%);
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), 0 0 12px rgba(56, 189, 248, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+  pointer-events: none;
+}
+
+.knob-icon {
+  font-size: 20px;
+  user-select: none;
+  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+}
+
+.joystick-arrows {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.j-arr {
+  position: absolute;
+  color: rgba(56, 189, 248, 0.45);
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.arr-up { top: 6px; left: 50%; transform: translateX(-50%); }
+.arr-down { bottom: 6px; left: 50%; transform: translateX(-50%); }
+.arr-left { left: 8px; top: 50%; transform: translateY(-50%); }
+.arr-right { right: 8px; top: 50%; transform: translateY(-50%); }
+
+/* 7-2. 우측 모바일 액션 패드 영역 */
+.mobile-action-zone {
+  position: absolute;
+  bottom: 80px;
+  right: 25px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/* 보조 스킬 슬롯 줄 (Q, E, 우클릭) */
+.mobile-skills-row {
+  display: flex;
+  gap: 10px;
+  margin-right: 15px;
+}
+
+.mobile-skill-btn {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 2px solid #475569;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  touch-action: none;
+  transition: transform 0.08s, border-color 0.1s;
+}
+
+.mobile-skill-btn:active {
+  transform: scale(0.92);
+}
+
+.mobile-skill-btn.ready {
+  border-color: #38bdf8;
+  background: rgba(2, 132, 199, 0.35);
+}
+
+.mobile-skill-btn.on-cooldown {
+  filter: brightness(0.45);
+}
+
+.mobile-skill-btn.no-cost {
+  filter: grayscale(0.85) brightness(0.6);
+  border-color: #475569;
+}
+
+.m-cost {
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 15px;
+  height: 15px;
+  background: #9333ea;
+  border: 1px solid #c084fc;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  z-index: 5;
+}
+
+.m-icon {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.m-label {
+  font-size: 8px;
+  color: #cbd5e1;
+  font-family: inherit;
+  margin-top: 1px;
+}
+
+.m-cd-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 0%;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 4;
+  transition: height 0.05s linear;
+}
+
+/* 메인 액션 버튼들 (구르기 + 던지기) */
+.mobile-main-actions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.mobile-action-btn {
+  position: relative;
+  border-radius: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: transform 0.08s, box-shadow 0.1s;
+}
+
+.mobile-action-btn:active {
+  transform: scale(0.92);
+}
+
+/* 구르기 버튼 */
+.btn-roll {
+  width: 58px;
+  height: 58px;
+  background: radial-gradient(circle at 35% 35%, #06b6d4 0%, #0891b2 80%);
+  border: 2.5px solid #22d3ee;
+  box-shadow: 0 0 12px rgba(34, 211, 238, 0.45), 0 4px 8px rgba(0,0,0,0.5);
+}
+
+.btn-roll .m-icon {
+  font-size: 20px;
+}
+
+.btn-roll .m-label {
+  font-size: 9px;
+  font-weight: bold;
+}
+
+.btn-roll.on-cooldown {
+  filter: brightness(0.45);
+}
+
+.btn-roll.no-cost {
+  filter: grayscale(0.8) brightness(0.6);
+}
+
+/* 투척 버튼 (메인) */
+.btn-throw {
+  width: 78px;
+  height: 78px;
+  background: radial-gradient(circle at 35% 35%, #38bdf8 0%, #0284c7 65%, #0369a1 100%);
+  border: 3px solid #e0f2fe;
+  box-shadow: 0 0 20px rgba(56, 189, 248, 0.65), 0 6px 14px rgba(0, 0, 0, 0.6);
+}
+
+.throw-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 3;
+}
+
+.throw-icon {
+  font-size: 28px;
+}
+
+.throw-label {
+  font-size: 11px;
+  font-weight: bold;
+  text-shadow: 0 1px 2px #000;
+}
+
+.btn-throw.charging {
+  border-color: #facc15;
+  box-shadow: 0 0 28px rgba(250, 204, 21, 0.85), 0 6px 14px rgba(0,0,0,0.6);
+  animation: throwPulse 0.4s infinite alternate;
+}
+
+@keyframes throwPulse {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.08); }
+}
+
+/* 토글 버튼 활성 스타일 */
+#btn-toggle-mobile.active {
+  background: #0284c7 !important;
+  border-color: #38bdf8 !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+}
+
+/* 기기 가로 모드 회전 안내 오버레이 */
+.rotate-device-prompt {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(10, 15, 30, 0.94);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  text-align: center;
+  color: #ffffff;
+  padding: 24px;
+}
+
+.rotate-device-prompt.hidden {
+  display: none !important;
+}
+
+.rotate-box {
+  background: rgba(15, 23, 42, 0.9);
+  border: 2px solid #38bdf8;
+  border-radius: 12px;
+  padding: 30px 24px;
+  max-width: 320px;
+  box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
+}
+
+.rotate-icon {
+  font-size: 54px;
+  margin-bottom: 14px;
+  animation: rotatePhone 2s infinite ease-in-out;
+}
+
+@keyframes rotatePhone {
+  0%, 20% { transform: rotate(0deg); }
+  50%, 70% { transform: rotate(-90deg); }
+  100% { transform: rotate(0deg); }
+}
+
+.rotate-title {
+  font-size: 20px;
+  font-weight: bold;
+  color: #38bdf8;
+  margin-bottom: 8px;
+}
+
+.rotate-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* 모바일 화면 (가로 모드 및 소형 뷰포트) 반응형 조절 */
+@media (max-width: 900px), (max-height: 520px) {
+  .joystick-zone {
+    bottom: 45px;
+    left: 10px;
+    width: 170px;
+    height: 170px;
+  }
+
+  .joystick-base {
+    width: 105px;
+    height: 105px;
+  }
+
+  .joystick-knob {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mobile-action-zone {
+    bottom: 45px;
+    right: 12px;
+    gap: 8px;
+  }
+
+  .mobile-skills-row {
+    gap: 6px;
+    margin-right: 8px;
+  }
+
+  .mobile-skill-btn {
+    width: 40px;
+    height: 40px;
+  }
+
+  .btn-roll {
+    width: 48px;
+    height: 48px;
+  }
+
+  .btn-throw {
+    width: 66px;
+    height: 66px;
+  }
+
+  .throw-icon {
+    font-size: 24px;
+  }
+
+  .throw-label {
+    font-size: 10px;
+  }
+
+  /* 하단 HUD 소형화 */
+  #hud-bottom {
+    bottom: 4px;
+    padding: 0 6px;
+    transform: scale(0.92);
+    transform-origin: bottom center;
+  }
+}
+
+

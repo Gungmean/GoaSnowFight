@@ -57,6 +57,66 @@
           <div id="countdown-number" class="countdown-number">3</div>
         </div>
 
+        <!-- 모바일 전용 가상 조이스틱 & 액션 패드 -->
+        <div id="mobile-controls" class="mobile-controls hidden">
+          <!-- 좌측: 이동 가상 조이스틱 존 -->
+          <div id="joystick-zone" class="joystick-zone">
+            <div id="joystick-base" class="joystick-base">
+              <div id="joystick-knob" class="joystick-knob">
+                <span class="knob-icon">❄️</span>
+              </div>
+              <div class="joystick-arrows">
+                <span class="j-arr arr-up">▲</span>
+                <span class="j-arr arr-down">▼</span>
+                <span class="j-arr arr-left">◀</span>
+                <span class="j-arr arr-right">▶</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 우측: 액션 버튼 존 (스킬 3종 + 구르기 + 조준 투척) -->
+          <div id="mobile-action-zone" class="mobile-action-zone">
+            <!-- 보조 스킬 (Q, E, 우클릭) -->
+            <div class="mobile-skills-row">
+              <button type="button" id="mobile-btn-q" class="mobile-skill-btn ready" title="트리플 샷 (Q)">
+                <span class="m-cost">2</span>
+                <span class="m-icon">❄️x3</span>
+                <span class="m-label">트리플</span>
+                <div class="m-cd-overlay"></div>
+              </button>
+              <button type="button" id="mobile-btn-e" class="mobile-skill-btn ready" title="눈사람 빙벽 (E)">
+                <span class="m-cost">3</span>
+                <span class="m-icon">⛄</span>
+                <span class="m-label">빙벽</span>
+                <div class="m-cd-overlay"></div>
+              </button>
+              <button type="button" id="mobile-btn-rmb" class="mobile-skill-btn ready" title="메가 눈폭탄 (우클릭)">
+                <span class="m-cost">4</span>
+                <span class="m-icon">💣</span>
+                <span class="m-label">폭탄</span>
+                <div class="m-cd-overlay"></div>
+              </button>
+            </div>
+
+            <!-- 메인 액션 버튼 (구르기 & 던지기) -->
+            <div class="mobile-main-actions">
+              <button type="button" id="mobile-btn-roll" class="mobile-action-btn btn-roll ready" title="회피 구르기 (Shift)">
+                <span class="m-cost">1</span>
+                <span class="m-icon">💨</span>
+                <span class="m-label">구르기</span>
+                <div class="m-cd-overlay"></div>
+              </button>
+              <button type="button" id="mobile-btn-throw" class="mobile-action-btn btn-throw" title="눈덩이 차징 & 던지기">
+                <div class="throw-inner">
+                  <span class="m-icon throw-icon">❄️</span>
+                  <span class="m-label throw-label">던지기</span>
+                </div>
+                <div class="throw-charge-ring"></div>
+              </button>
+            </div>
+          </div>
+        </div>
+
         <!-- 인게임 하단 통합 HUD (경기장 아래쪽 남색 바 영역에 완벽 고정) -->
         <div id="hud-bottom">
           <!-- 1. 좌측: 1P 플레이어 상태 (항상 왼쪽) -->
@@ -166,11 +226,21 @@
               </select>
               <button id="btn-toggle-line" class="hud-mini-btn" title="중앙 분할선 끄기 (전체 영역 자유 이동)">🚧 라인 OFF</button>
               <button id="btn-reset-training" class="hud-mini-btn" title="체력 및 위치 초기화">🔄 초기화</button>
+              <button id="btn-toggle-mobile" class="hud-mini-btn" title="모바일 가상 조이스틱 토글">🕹️ 조이스틱</button>
               <button id="btn-sound-toggle" class="hud-mini-btn" title="사운드 ON/OFF">🔊</button>
               <button id="btn-fullscreen" class="hud-mini-btn" title="전체화면 전환">⛶</button>
               <button id="btn-back-to-title" class="hud-mini-btn danger" title="메인 메뉴로 이동">🚪 나가기</button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- 모바일 가로 모드 회전 권장 안내 오버레이 -->
+      <div id="rotate-device-prompt" class="rotate-device-prompt hidden">
+        <div class="rotate-box">
+          <div class="rotate-icon">📱 ➔ 📲</div>
+          <div class="rotate-title">가로 화면으로 회전해주세요</div>
+          <div class="rotate-desc">더 넓은 경기장 시야와 쾌적한 1:1 대전을 위해 기기를 가로로 회전해주세요!</div>
         </div>
       </div>
     </div>
@@ -325,6 +395,7 @@
   <script src="js/remotePlayer.js"></script>
   <script src="js/bot.js"></script>
   <script src="js/network.js"></script>
+  <script src="js/mobileControls.js"></script>
   <script src="js/game.js"></script>
   <script src="js/main.js"></script>
 </body>

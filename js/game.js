@@ -47,6 +47,9 @@ class Game {
     this.shakeDuration = 0;
     this.shakeIntensity = 0;
 
+    // 모바일 가상 조이스틱 & 액션 컨트롤러
+    this.mobileControls = null;
+
     this.bindEvents();
     this.bindNetworkEvents();
   }
@@ -452,6 +455,11 @@ class Game {
 
     // 1. 플레이어 업데이트
     this.player.update(dt, this.particles, this.sound);
+
+    // 모바일 조이스틱 & 액션 패드 쿨다운 동기화
+    if (this.mobileControls) {
+      this.mobileControls.update(dt);
+    }
 
     // 2. 상대방(멀티) vs 더미 봇(훈련) 업데이트
     if (this.mode === 'MULTIPLAYER') {

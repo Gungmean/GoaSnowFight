@@ -55,6 +55,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 게임 엔진 에셋 프리로드
   await game.init();
 
+  // 모바일 가상 조이스틱 & 액션 패드 매니저 초기화
+  const mobileControls = new MobileControls(game);
+  game.mobileControls = mobileControls;
+  window.mobileControlsInstance = mobileControls;
+
   // 1. "게임 시작" 클릭 -> 모드 선택 모달 열기
   btnStartGame.addEventListener('click', () => {
     window.sounds.playClick();
@@ -221,6 +226,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     btnSoundToggle.innerText = isMuted ? '🔇' : '🔊';
     btnSoundToggle.title = isMuted ? '사운드 켜기' : '사운드 끄기';
   });
+
+  // 9-1. 모바일 가상 조이스틱 토글 버튼
+  const btnToggleMobile = document.getElementById('btn-toggle-mobile');
+  if (btnToggleMobile) {
+    btnToggleMobile.addEventListener('click', () => {
+      window.sounds.playClick();
+      mobileControls.toggle();
+    });
+  }
+
+  // 9-2. 하단 HUD 스킬 슬롯 터치/클릭 즉시 발동 지원
+  if (slotRoll) {
+    slotRoll.addEventListener('click', () => {
+      if (!game.isRunning) return;
+      window.sounds.playClick();
+      game.player.triggerRoll();
+    });
+  }
+  if (slotQ) {
+    slotQ.addEventListener('click', () => {
+      if (!game.isRunning) return;
+      const target = mobileControls.getAutoTargetCoords();
+      const ok = game.player.skillManager.castQ(target.x, target.y, game.snowballs, game.particles, game.sound);
+      if (ok && game.mode === 'MULTIPLAYER') {
+        game.network.sendSkill('q', { targetX: target.x, targetY: target.y });
+      }
+    });
+  }
+  if (slotE) {
+    slotE.addEventListener('click', () => {
+      if (!game.isRunning) return;
+      const target = mobileControls.getAutoTargetCoords(110);
+      const ok = game.player.skillManager.castE(target.x, target.y, game.particles, game.sound);
+      if (ok && game.mode === 'MULTIPLAYER') {
+        game.network.sendSkill('e', { targetX: target.x, targetY: target.y });
+      }
+    });
+  }
+  if (slotRmb) {
+    slotRmb.addEventListener('click', () => {
+      if (!game.isRunning) return;
+      const target = mobileControls.getAutoTargetCoords();
+      const ok = game.player.skillManager.castRMB(target.x, target.y, game.snowballs, game.particles, game.sound);
+      if (ok && game.mode === 'MULTIPLAYER') {
+        game.network.sendSkill('rmb', { targetX: target.x, targetY: target.y });
+      }
+    });
+  }
 
   // 전체화면 요청 헬퍼
   function requestGameFullscreen() {
