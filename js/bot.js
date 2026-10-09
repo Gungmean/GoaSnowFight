@@ -311,7 +311,7 @@ class TrainingBot {
     for (let i = 0; i < this.maxHp; i++) {
       const hx = startX + i * heartSpacing;
       const isFilled = i < this.hp;
-      ctx.font = '14px sans-serif';
+      ctx.font = '14px "PixelFont", "Segoe UI Emoji", sans-serif';
       ctx.textAlign = 'center';
       if (isFilled) {
         ctx.fillText('❤️', hx, uiY + 6);

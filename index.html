@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>고아 눈싸움 - 1:1 도트 눈싸움 액션</title>
-  <link rel="stylesheet" href="style.css?v=20261010_2">
+  <link rel="stylesheet" href="style.css?v=20261010_3">
 </head>
 <body>
   <div id="game-container">
@@ -57,13 +57,24 @@
           <div id="countdown-number" class="countdown-number">3</div>
         </div>
 
-        <!-- 모바일 전용 가상 조이스틱 & 액션 패드 -->
+        <!-- 모바일 전용 가상 조이스틱 & 액션 패드 (레트로 도트 스타일) -->
         <div id="mobile-controls" class="mobile-controls hidden">
           <!-- 좌측: 이동 가상 조이스틱 존 -->
           <div id="joystick-zone" class="joystick-zone">
             <div id="joystick-base" class="joystick-base">
+              <!-- 8방향 도트 십자키 가이드라인 및 리벳 -->
+              <div class="joystick-cross-guides">
+                <div class="j-cross-line h-line"></div>
+                <div class="j-cross-line v-line"></div>
+                <div class="j-corner-dot dot-tl"></div>
+                <div class="j-corner-dot dot-tr"></div>
+                <div class="j-corner-dot dot-bl"></div>
+                <div class="j-corner-dot dot-br"></div>
+              </div>
               <div id="joystick-knob" class="joystick-knob">
-                <span class="knob-icon">❄️</span>
+                <div class="knob-core">
+                  <span class="knob-icon">❄️</span>
+                </div>
               </div>
               <div class="joystick-arrows">
                 <span class="j-arr arr-up">▲</span>
@@ -83,18 +94,21 @@
                 <span class="m-icon">❄️x3</span>
                 <span class="m-label">트리플</span>
                 <div class="m-cd-overlay"></div>
+                <div class="m-cd-text"></div>
               </button>
               <button type="button" id="mobile-btn-e" class="mobile-skill-btn ready" title="눈사람 빙벽 (E)">
                 <span class="m-cost">3</span>
                 <span class="m-icon">⛄</span>
                 <span class="m-label">빙벽</span>
                 <div class="m-cd-overlay"></div>
+                <div class="m-cd-text"></div>
               </button>
               <button type="button" id="mobile-btn-rmb" class="mobile-skill-btn ready" title="메가 눈폭탄 (우클릭)">
                 <span class="m-cost">4</span>
                 <span class="m-icon">💣</span>
                 <span class="m-label">폭탄</span>
                 <div class="m-cd-overlay"></div>
+                <div class="m-cd-text"></div>
               </button>
             </div>
 
@@ -105,13 +119,16 @@
                 <span class="m-icon">💨</span>
                 <span class="m-label">구르기</span>
                 <div class="m-cd-overlay"></div>
+                <div class="m-cd-text"></div>
               </button>
               <button type="button" id="mobile-btn-throw" class="mobile-action-btn btn-throw" title="눈덩이 차징 & 던지기">
                 <div class="throw-inner">
                   <span class="m-icon throw-icon">❄️</span>
                   <span class="m-label throw-label">던지기</span>
                 </div>
-                <div class="throw-charge-ring"></div>
+                <div class="throw-charge-bar">
+                  <div id="throw-charge-fill" class="throw-charge-fill"></div>
+                </div>
               </button>
             </div>
           </div>
@@ -385,18 +402,18 @@
     </div>
   </div>
 
-  <!-- 스크립트 로드 순서 (캐시 방지 v=20261010_2 적용) -->
-  <script src="js/sound.js?v=20261010_2"></script>
-  <script src="js/particles.js?v=20261010_2"></script>
-  <script src="js/sprites.js?v=20261010_2"></script>
-  <script src="js/snowball.js?v=20261010_2"></script>
-  <script src="js/skills.js?v=20261010_2"></script>
-  <script src="js/player.js?v=20261010_2"></script>
-  <script src="js/remotePlayer.js?v=20261010_2"></script>
-  <script src="js/bot.js?v=20261010_2"></script>
-  <script src="js/network.js?v=20261010_2"></script>
-  <script src="js/mobileControls.js?v=20261010_2"></script>
-  <script src="js/game.js?v=20261010_2"></script>
-  <script src="js/main.js?v=20261010_2"></script>
+  <!-- 스크립트 로드 순서 (캐시 방지 v=20261010_3 적용) -->
+  <script src="js/sound.js?v=20261010_3"></script>
+  <script src="js/particles.js?v=20261010_3"></script>
+  <script src="js/sprites.js?v=20261010_3"></script>
+  <script src="js/snowball.js?v=20261010_3"></script>
+  <script src="js/skills.js?v=20261010_3"></script>
+  <script src="js/player.js?v=20261010_3"></script>
+  <script src="js/remotePlayer.js?v=20261010_3"></script>
+  <script src="js/bot.js?v=20261010_3"></script>
+  <script src="js/network.js?v=20261010_3"></script>
+  <script src="js/mobileControls.js?v=20261010_3"></script>
+  <script src="js/game.js?v=20261010_3"></script>
+  <script src="js/main.js?v=20261010_3"></script>
 </body>
 </html>

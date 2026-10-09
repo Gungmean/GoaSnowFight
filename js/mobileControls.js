@@ -58,8 +58,10 @@ class MobileControls {
     if (this.container) {
       if (this.enabled) {
         this.container.classList.remove('hidden');
+        document.body.classList.add('mobile-controls-active');
       } else {
         this.container.classList.add('hidden');
+        document.body.classList.remove('mobile-controls-active');
         if (this.game && this.game.player) {
           this.game.player.setJoystick(0, 0);
         }
@@ -519,15 +521,19 @@ class MobileControls {
     this.updateButtonCooldown(this.btnE, skE.currentCooldown, skE.cooldown, p.cost >= skE.cost);
     this.updateButtonCooldown(this.btnRmb, skRmb.currentCooldown, skRmb.cooldown, p.cost >= skRmb.cost);
 
-    // 3. 차징 중이면 투척 버튼에 차징 게이지 반영
+    // 3. 차징 중이면 투척 버튼에 레트로 차징 게이지 반영
     if (this.btnThrow) {
+      const chargeFill = document.getElementById('throw-charge-fill');
       if (p.isCharging) {
         this.btnThrow.classList.add('charging');
-        const fillPct = Math.floor(p.chargeRatio * 100);
-        this.btnThrow.style.setProperty('--charge-pct', `${fillPct}%`);
+        const fillPct = Math.min(100, Math.floor(p.chargeRatio * 100));
+        if (chargeFill) {
+          chargeFill.style.width = `${fillPct}%`;
+          chargeFill.style.backgroundColor = p.chargeRatio >= 1 ? '#facc15' : '#38bdf8';
+        }
       } else {
         this.btnThrow.classList.remove('charging');
-        this.btnThrow.style.removeProperty('--charge-pct');
+        if (chargeFill) chargeFill.style.width = '0%';
       }
     }
   }
@@ -535,6 +541,7 @@ class MobileControls {
   updateButtonCooldown(btnElem, curCd, maxCd, hasCost) {
     if (!btnElem) return;
     const overlay = btnElem.querySelector('.m-cd-overlay');
+    const text = btnElem.querySelector('.m-cd-text');
 
     if (curCd > 0) {
       btnElem.classList.add('on-cooldown');
@@ -542,9 +549,13 @@ class MobileControls {
       if (overlay) {
         overlay.style.height = `${(curCd / maxCd) * 100}%`;
       }
+      if (text) {
+        text.innerText = `${curCd.toFixed(1)}s`;
+      }
     } else {
       btnElem.classList.remove('on-cooldown');
       if (overlay) overlay.style.height = '0%';
+      if (text) text.innerText = '';
 
       if (hasCost) {
         btnElem.classList.add('ready');

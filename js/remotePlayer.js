@@ -223,7 +223,7 @@ class RemotePlayer {
       const hx = startX + i * heartSpacing;
       const isFilled = i < this.hp;
 
-      ctx.font = '14px sans-serif';
+      ctx.font = '14px "PixelFont", "Segoe UI Emoji", sans-serif';
       ctx.textAlign = 'center';
       if (isFilled) {
         ctx.fillStyle = '#ef4444';

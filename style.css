@@ -17,13 +17,22 @@
   font-style: normal;
 }
 
-/* 기본 리셋 및 글로벌 설정 */
+/* 기본 리셋 및 글로벌 설정 (도트 폰트 통일) */
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
   user-select: none;
   -webkit-user-select: none;
+  font-family: 'PixelFont', 'PixelFontSub', monospace, 'Segoe UI Emoji', sans-serif;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+button, input, select, textarea {
+  font-family: 'PixelFont', 'PixelFontSub', monospace, 'Segoe UI Emoji', sans-serif;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
 }
 
 html, body {
@@ -31,7 +40,7 @@ html, body {
   height: 100%;
   overflow: hidden;
   background-color: #0c121e;
-  font-family: 'PixelFont', monospace, sans-serif;
+  font-family: 'PixelFont', 'PixelFontSub', monospace, 'Segoe UI Emoji', sans-serif;
   color: #ffffff;
   -webkit-font-smoothing: none;
   font-smooth: never;
@@ -407,10 +416,19 @@ html, body {
   gap: 6px;
 }
 
-/* 스킬 슬롯 4종 (구르기, Q, E, 우클릭) */
+/* 스킬 슬롯 4종 (데스크톱 키보드 조작용 - 모바일 컨트롤 활성화 시 모바일 패드가 대체하므로 자동 숨김) */
 .skill-slots-container {
   display: flex;
   gap: 8px;
+}
+
+body.mobile-controls-active .skill-slots-container {
+  display: none !important;
+}
+
+body.mobile-controls-active .cost-and-skills-wrapper {
+  gap: 0;
+  justify-content: center;
 }
 
 .skill-slot {
@@ -953,7 +971,7 @@ html, body {
 }
 
 /* ==========================================================================
-   7. 모바일 가상 조이스틱 & 액션 패드 (Touch Controls)
+   7. 모바일 전용 가상 조이스틱 & 액션 패드 (레트로 도트 / 아케이드 픽셀 아트 스타일)
    ========================================================================== */
 .mobile-controls {
   position: absolute;
@@ -966,67 +984,102 @@ html, body {
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
+  font-family: 'PixelFont', 'PixelFontSub', monospace, sans-serif;
 }
 
 .mobile-controls.hidden {
   display: none !important;
 }
 
-/* 7-1. 좌측 이동 가상 조이스틱 영역 */
+/* 7-1. 좌측 레트로 아케이드 D-Pad 조이스틱 영역 */
 .joystick-zone {
   position: absolute;
-  bottom: 85px;
-  left: 20px;
-  width: 220px;
-  height: 220px;
+  bottom: 80px;
+  left: 24px;
+  width: 170px;
+  height: 170px;
   pointer-events: auto;
   touch-action: none;
 }
 
+/* 베이스: 130px x 130px 레트로 아케이드 8각 픽셀 플레이트 (터치존 정중앙 배치) */
 .joystick-base {
   position: absolute;
-  bottom: 25px;
-  left: 25px;
+  top: 50%;
+  left: 50%;
   width: 130px;
   height: 130px;
   transform: translate(-50%, -50%);
-  background: radial-gradient(circle, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.45) 80%, rgba(56, 189, 248, 0.25) 100%);
-  border: 3px solid rgba(56, 189, 248, 0.55);
-  border-radius: 50%;
-  box-shadow: 0 0 16px rgba(56, 189, 248, 0.35), inset 0 0 12px rgba(15, 23, 42, 0.8);
+  background: #090e1a;
+  border: 4px solid #000000;
+  clip-path: polygon(
+    14px 0, calc(100% - 14px) 0,
+    100% 14px, 100% calc(100% - 14px),
+    calc(100% - 14px) 100%, 14px 100%,
+    0 calc(100% - 14px), 0 14px
+  );
+  box-shadow: inset 3px 3px 0 #38bdf8,
+              inset -3px -3px 0 #0369a1,
+              0 6px 0 #000000;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.15s, box-shadow 0.15s;
   pointer-events: none;
+  transition: box-shadow 0.15s, border-color 0.15s;
 }
 
 .joystick-base.active {
-  border-color: #38bdf8;
-  box-shadow: 0 0 24px rgba(56, 189, 248, 0.75), inset 0 0 16px rgba(56, 189, 248, 0.3);
+  box-shadow: inset 3px 3px 0 #7dd3fc,
+              inset -3px -3px 0 #0284c7,
+              0 0 16px rgba(56, 189, 248, 0.7),
+              0 6px 0 #000000;
 }
 
-.joystick-knob {
+/* 8방향 십자 가이드 및 코너 도트 리벳 */
+.joystick-cross-guides {
   position: absolute;
-  width: 54px;
-  height: 54px;
-  background: radial-gradient(circle at 35% 35%, #7dd3fc 0%, #0284c7 65%, #0369a1 100%);
-  border: 2px solid #ffffff;
-  border-radius: 50%;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6), 0 0 12px rgba(56, 189, 248, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  will-change: transform;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
-.knob-icon {
-  font-size: 20px;
-  user-select: none;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+.j-cross-line {
+  position: absolute;
+  background: rgba(56, 189, 248, 0.22);
 }
 
+.j-cross-line.h-line {
+  top: 50%;
+  left: 14px;
+  right: 14px;
+  height: 2px;
+  transform: translateY(-50%);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.6);
+}
+
+.j-cross-line.v-line {
+  left: 50%;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  transform: translateX(-50%);
+  box-shadow: 1px 0 0 rgba(0, 0, 0, 0.6);
+}
+
+/* 4 코너 픽셀 리벳 (볼트) */
+.j-corner-dot {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: #38bdf8;
+  box-shadow: 1px 1px 0 #000000;
+}
+.dot-tl { top: 18px; left: 18px; }
+.dot-tr { top: 18px; right: 18px; }
+.dot-bl { bottom: 18px; left: 18px; }
+.dot-br { bottom: 18px; right: 18px; }
+
+/* 십자 화살표 (도트 폰트 렌더링) */
 .joystick-arrows {
   position: absolute;
   width: 100%;
@@ -1036,9 +1089,12 @@ html, body {
 
 .j-arr {
   position: absolute;
-  color: rgba(56, 189, 248, 0.45);
-  font-size: 11px;
+  color: #38bdf8;
+  font-family: 'PixelFont', monospace;
+  font-size: 13px;
   font-weight: bold;
+  text-shadow: 1px 1px 0 #000000;
+  line-height: 1;
 }
 
 .arr-up { top: 6px; left: 50%; transform: translateX(-50%); }
@@ -1046,93 +1102,158 @@ html, body {
 .arr-left { left: 8px; top: 50%; transform: translateY(-50%); }
 .arr-right { right: 8px; top: 50%; transform: translateY(-50%); }
 
-/* 7-2. 우측 모바일 액션 패드 영역 */
+/* 조이스틱 손잡이 (아케이드 스틱 볼탑 / 픽셀 노브) */
+.joystick-knob {
+  position: absolute;
+  width: 56px;
+  height: 56px;
+  background: #0284c7;
+  border: 3px solid #000000;
+  clip-path: polygon(
+    8px 0, calc(100% - 8px) 0,
+    100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%,
+    0 calc(100% - 8px), 0 8px
+  );
+  box-shadow: inset 3px 3px 0 #bae6fd,
+              inset -3px -3px 0 #075985,
+              0 4px 0 #000000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.joystick-base.active .joystick-knob {
+  background: #0ea5e9;
+  box-shadow: inset 3px 3px 0 #ffffff,
+              inset -3px -3px 0 #0369a1,
+              0 4px 0 #000000;
+}
+
+.knob-core {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.knob-icon {
+  font-size: 22px;
+  user-select: none;
+  filter: drop-shadow(1px 2px 0 #000000);
+}
+
+/* ==========================================================================
+   7-2. 우측 레트로 아케이드 액션 패드 (스킬 3종 + 구르기 + 메인 투척)
+   ========================================================================== */
 .mobile-action-zone {
   position: absolute;
-  bottom: 80px;
-  right: 25px;
+  bottom: 96px;
+  right: 20px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 12px;
   pointer-events: auto;
   touch-action: none;
+  font-family: 'PixelFont', monospace;
 }
 
-/* 보조 스킬 슬롯 줄 (Q, E, 우클릭) */
+/* 보조 스킬 줄 (Q, E, 우클릭 폭탄) */
 .mobile-skills-row {
   display: flex;
   gap: 10px;
-  margin-right: 15px;
+  margin-right: 12px;
 }
 
+/* 레트로 픽셀 스킬 버튼 (50px x 50px 8각 도트 박스) */
 .mobile-skill-btn {
   position: relative;
-  width: 48px;
-  height: 48px;
-  background: rgba(15, 23, 42, 0.85);
-  border: 2px solid #475569;
-  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  background: #0f172a;
+  border: 3px solid #000000;
+  clip-path: polygon(
+    6px 0, calc(100% - 6px) 0,
+    100% 6px, 100% calc(100% - 6px),
+    calc(100% - 6px) 100%, 6px 100%,
+    0 calc(100% - 6px), 0 6px
+  );
+  box-shadow: inset 2px 2px 0 #334155,
+              inset -2px -2px 0 #020617,
+              0 4px 0 #000000;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
   overflow: hidden;
   touch-action: none;
-  transition: transform 0.08s, border-color 0.1s;
+  transition: transform 0.05s, box-shadow 0.05s;
 }
 
 .mobile-skill-btn:active {
-  transform: scale(0.92);
+  transform: translateY(3px);
+  box-shadow: inset 2px 2px 0 #000000, 0 1px 0 #000000;
 }
 
 .mobile-skill-btn.ready {
-  border-color: #38bdf8;
-  background: rgba(2, 132, 199, 0.35);
+  background: #0c4a6e;
+  box-shadow: inset 2px 2px 0 #38bdf8,
+              inset -2px -2px 0 #082f49,
+              0 4px 0 #000000;
 }
 
 .mobile-skill-btn.on-cooldown {
-  filter: brightness(0.45);
+  filter: brightness(0.5);
 }
 
 .mobile-skill-btn.no-cost {
   filter: grayscale(0.85) brightness(0.6);
-  border-color: #475569;
 }
 
+/* 스킬 코스트 도트 뱃지 (우상단 픽셀 사각 박스) */
 .m-cost {
   position: absolute;
   top: 1px;
   right: 1px;
-  width: 15px;
-  height: 15px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 2px;
   background: #9333ea;
-  border: 1px solid #c084fc;
-  border-radius: 50%;
-  font-size: 9px;
+  border: 1.5px solid #000000;
+  font-family: 'PixelFont', monospace;
+  font-size: 10px;
   font-weight: bold;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000000;
   z-index: 5;
 }
 
 .m-icon {
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1;
+  filter: drop-shadow(1px 1px 0 #000000);
 }
 
 .m-label {
-  font-size: 8px;
-  color: #cbd5e1;
-  font-family: inherit;
+  font-family: 'PixelFont', monospace;
+  font-size: 9px;
+  font-weight: bold;
+  color: #e2e8f0;
+  text-shadow: 1px 1px 0 #000000;
   margin-top: 1px;
 }
 
+/* 스킬 쿨다운 오버레이 및 잔여 초 표시 */
 .m-cd-overlay {
   position: absolute;
   bottom: 0;
@@ -1144,67 +1265,99 @@ html, body {
   transition: height 0.05s linear;
 }
 
-/* 메인 액션 버튼들 (구르기 + 던지기) */
+.m-cd-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: 'PixelFont', monospace;
+  font-size: 11px;
+  font-weight: bold;
+  color: #facc15;
+  text-shadow: 1px 1px 0 #000000;
+  z-index: 6;
+  pointer-events: none;
+}
+
+/* 메인 액션 버튼 세트 (구르기 + 던지기) */
 .mobile-main-actions {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .mobile-action-btn {
   position: relative;
-  border-radius: 50%;
+  border: 3px solid #000000;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   color: #ffffff;
   cursor: pointer;
-  box-shadow: 0 5px 12px rgba(0, 0, 0, 0.6);
   overflow: hidden;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
-  transition: transform 0.08s, box-shadow 0.1s;
+  transition: transform 0.05s, box-shadow 0.05s;
 }
 
 .mobile-action-btn:active {
-  transform: scale(0.92);
+  transform: translateY(3px);
+  box-shadow: inset 2px 2px 0 #000000, 0 1px 0 #000000;
 }
 
-/* 구르기 버튼 */
+/* 회피 구르기 버튼 (58px x 58px 청록색 도트 버튼) */
 .btn-roll {
   width: 58px;
   height: 58px;
-  background: radial-gradient(circle at 35% 35%, #06b6d4 0%, #0891b2 80%);
-  border: 2.5px solid #22d3ee;
-  box-shadow: 0 0 12px rgba(34, 211, 238, 0.45), 0 4px 8px rgba(0,0,0,0.5);
+  background: #0891b2;
+  clip-path: polygon(
+    8px 0, calc(100% - 8px) 0,
+    100% 8px, 100% calc(100% - 8px),
+    calc(100% - 8px) 100%, 8px 100%,
+    0 calc(100% - 8px), 0 8px
+  );
+  box-shadow: inset 3px 3px 0 #67e8f9,
+              inset -3px -3px 0 #155e75,
+              0 5px 0 #000000;
 }
 
 .btn-roll .m-icon {
   font-size: 20px;
+  filter: drop-shadow(1px 1px 0 #000000);
 }
 
 .btn-roll .m-label {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: bold;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000000;
 }
 
 .btn-roll.on-cooldown {
-  filter: brightness(0.45);
+  filter: brightness(0.5);
 }
 
 .btn-roll.no-cost {
   filter: grayscale(0.8) brightness(0.6);
 }
 
-/* 투척 버튼 (메인) */
+/* 메인 투척 왕버튼 (84px x 84px 대형 아케이드 도트 버튼) */
 .btn-throw {
-  width: 78px;
-  height: 78px;
-  background: radial-gradient(circle at 35% 35%, #38bdf8 0%, #0284c7 65%, #0369a1 100%);
-  border: 3px solid #e0f2fe;
-  box-shadow: 0 0 20px rgba(56, 189, 248, 0.65), 0 6px 14px rgba(0, 0, 0, 0.6);
+  width: 84px;
+  height: 84px;
+  background: #0284c7;
+  border: 4px solid #000000;
+  clip-path: polygon(
+    12px 0, calc(100% - 12px) 0,
+    100% 12px, 100% calc(100% - 12px),
+    calc(100% - 12px) 100%, 12px 100%,
+    0 calc(100% - 12px), 0 12px
+  );
+  box-shadow: inset 4px 4px 0 #bae6fd,
+              inset -4px -4px 0 #0369a1,
+              0 6px 0 #000000;
 }
 
 .throw-inner {
@@ -1216,24 +1369,59 @@ html, body {
 }
 
 .throw-icon {
-  font-size: 28px;
+  font-size: 30px;
+  filter: drop-shadow(1px 2px 0 #000000);
 }
 
 .throw-label {
-  font-size: 11px;
+  font-family: 'PixelFont', monospace;
+  font-size: 13px;
   font-weight: bold;
-  text-shadow: 0 1px 2px #000;
+  color: #ffffff;
+  text-shadow: 2px 2px 0 #000000;
+  margin-top: 1px;
 }
 
+/* 차징 게이지 바 (버튼 하단 도트 바) */
+.throw-charge-bar {
+  position: absolute;
+  bottom: 5px;
+  left: 8px;
+  right: 8px;
+  height: 6px;
+  background: #082f49;
+  border: 1.5px solid #000000;
+  z-index: 4;
+  overflow: hidden;
+  display: none;
+}
+
+.btn-throw.charging .throw-charge-bar {
+  display: block;
+}
+
+.throw-charge-fill {
+  width: 0%;
+  height: 100%;
+  background: #38bdf8;
+  transition: width 0.03s linear, background-color 0.1s;
+}
+
+/* 차징 중 버튼 레트로 점멸 애니메이션 */
 .btn-throw.charging {
-  border-color: #facc15;
-  box-shadow: 0 0 28px rgba(250, 204, 21, 0.85), 0 6px 14px rgba(0,0,0,0.6);
-  animation: throwPulse 0.4s infinite alternate;
+  animation: retroChargeFlash 0.25s steps(2) infinite alternate;
+  box-shadow: inset 4px 4px 0 #fef08a,
+              inset -4px -4px 0 #b45309,
+              0 6px 0 #000000;
 }
 
-@keyframes throwPulse {
-  0% { transform: scale(1); }
-  100% { transform: scale(1.08); }
+@keyframes retroChargeFlash {
+  0% {
+    background: #0284c7;
+  }
+  100% {
+    background: #d97706;
+  }
 }
 
 /* 토글 버튼 활성 스타일 */
@@ -1241,17 +1429,17 @@ html, body {
   background: #0284c7 !important;
   border-color: #38bdf8 !important;
   color: #ffffff !important;
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
+  box-shadow: inset 2px 2px 0 #bae6fd, inset -2px -2px 0 #0369a1, 0 0 8px rgba(56, 189, 248, 0.8) !important;
 }
 
-/* 기기 가로 모드 회전 안내 오버레이 */
+/* 기기 가로 모드 회전 안내 오버레이 (도트 팝업창 스타일) */
 .rotate-device-prompt {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background: rgba(10, 15, 30, 0.94);
+  background: rgba(10, 15, 30, 0.95);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1266,18 +1454,26 @@ html, body {
 }
 
 .rotate-box {
-  background: rgba(15, 23, 42, 0.9);
-  border: 2px solid #38bdf8;
-  border-radius: 12px;
+  background: #0f172a;
+  border: 4px solid #000000;
+  clip-path: polygon(
+    10px 0, calc(100% - 10px) 0,
+    100% 10px, 100% calc(100% - 10px),
+    calc(100% - 10px) 100%, 10px 100%,
+    0 calc(100% - 10px), 0 10px
+  );
+  box-shadow: inset 3px 3px 0 #38bdf8,
+              inset -3px -3px 0 #0369a1,
+              0 8px 0 #000000;
   padding: 30px 24px;
   max-width: 320px;
-  box-shadow: 0 0 30px rgba(56, 189, 248, 0.4);
 }
 
 .rotate-icon {
-  font-size: 54px;
+  font-size: 52px;
   margin-bottom: 14px;
   animation: rotatePhone 2s infinite ease-in-out;
+  filter: drop-shadow(2px 2px 0 #000000);
 }
 
 @keyframes rotatePhone {
@@ -1287,69 +1483,81 @@ html, body {
 }
 
 .rotate-title {
-  font-size: 20px;
+  font-family: 'PixelFont', monospace;
+  font-size: 19px;
   font-weight: bold;
   color: #38bdf8;
+  text-shadow: 2px 2px 0 #000000;
   margin-bottom: 8px;
 }
 
 .rotate-desc {
-  font-size: 13px;
-  color: #94a3b8;
+  font-family: 'PixelFont', monospace;
+  font-size: 12px;
+  color: #cbd5e1;
   line-height: 1.5;
+  text-shadow: 1px 1px 0 #000000;
 }
 
 /* 모바일 화면 (가로 모드 및 소형 뷰포트) 반응형 조절 */
 @media (max-width: 900px), (max-height: 520px) {
   .joystick-zone {
-    bottom: 45px;
+    bottom: 50px;
     left: 10px;
     width: 170px;
     height: 170px;
   }
 
   .joystick-base {
-    width: 105px;
-    height: 105px;
+    width: 110px;
+    height: 110px;
   }
 
   .joystick-knob {
-    width: 44px;
-    height: 44px;
+    width: 46px;
+    height: 46px;
   }
 
   .mobile-action-zone {
-    bottom: 45px;
-    right: 12px;
+    bottom: 72px;
+    right: 14px;
     gap: 8px;
   }
 
   .mobile-skills-row {
     gap: 6px;
-    margin-right: 8px;
+    margin-right: 6px;
   }
 
   .mobile-skill-btn {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
   }
 
   .btn-roll {
-    width: 48px;
-    height: 48px;
+    width: 52px;
+    height: 52px;
   }
 
   .btn-throw {
-    width: 66px;
-    height: 66px;
+    width: 74px;
+    height: 74px;
   }
 
   .throw-icon {
-    font-size: 24px;
+    font-size: 26px;
   }
 
   .throw-label {
-    font-size: 10px;
+    font-size: 11px;
+  }
+
+  .skill-slots-container {
+    display: none !important;
+  }
+
+  .cost-and-skills-wrapper {
+    gap: 0;
   }
 
   /* 하단 HUD 소형화 */
