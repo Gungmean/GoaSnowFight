@@ -52,8 +52,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   const ambientSnowCanvas = document.getElementById('ambient-snow-canvas');
   if (ambientSnowCanvas) initTitleSnow(ambientSnowCanvas);
 
-  // 게임 엔진 에셋 프리로드
-  await game.init();
+  // 게임 엔진 에셋 프리로드 (백그라운드 병렬 로드)
+  let isGameReady = false;
+  const initPromise = game.init().then(() => {
+    isGameReady = true;
+  });
 
   // 모바일 가상 조이스틱 & 액션 패드 매니저 초기화
   const mobileControls = new MobileControls(game);
@@ -316,7 +319,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // 훈련장 진입 함수 (게임 진입 시 자동으로 전체화면 전환)
-  function enterTrainingMode() {
+  async function enterTrainingMode() {
+    if (!isGameReady) {
+      await initPromise;
+    }
     requestGameFullscreen();
 
     titleScreen.classList.add('hidden');

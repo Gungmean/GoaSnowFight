@@ -457,6 +457,10 @@ class MobileControls {
       }
     };
 
+    this.rotatePrompt.addEventListener('click', () => {
+      this.rotatePrompt.classList.add('hidden');
+    });
+
     window.addEventListener('resize', checkOrientation);
     window.addEventListener('orientationchange', () => {
       setTimeout(checkOrientation, 150);

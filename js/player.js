@@ -337,11 +337,13 @@ class Player {
       let mx = 0;
       let my = 0;
       let speedScale = 1;
+      let isMoving = false;
 
       if (this.hasJoystickInput) {
         mx = this.joystickX;
         my = this.joystickY;
         const jLen = Math.hypot(mx, my);
+        isMoving = jLen > 0.08;
         speedScale = Math.min(1, Math.max(0.2, jLen));
         if (jLen > 0) {
           mx /= jLen;
@@ -353,10 +355,11 @@ class Player {
         if (this.keys.s) my += 1;
         if (this.keys.w) my -= 1;
 
-        const len = Math.hypot(mx, my);
-        if (len > 0) {
-          mx /= len;
-          my /= len;
+        const kLen = Math.hypot(mx, my);
+        isMoving = kLen > 0;
+        if (kLen > 0) {
+          mx /= kLen;
+          my /= kLen;
         }
       }
 
@@ -405,7 +408,7 @@ class Player {
         this.animName = 'throw';
       } else if (this.isCharging) {
         this.animName = 'charge';
-      } else if (len > 0) {
+      } else if (isMoving) {
         this.animName = 'move';
       } else {
         this.animName = 'idle';
