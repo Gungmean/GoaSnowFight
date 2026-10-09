@@ -1,0 +1,880 @@
+/* ==========================================================================
+   style.css - 1:1 도트 눈싸움 액션 스타일시트
+   ========================================================================== */
+
+/* 1. 픽셀 폰트 등록 */
+@font-face {
+  font-family: 'PixelFont';
+  src: url('./fonts/Mona12TextKR-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'PixelFontSub';
+  src: url('./fonts/Mona10-Bold.ttf') format('truetype');
+  font-weight: bold;
+  font-style: normal;
+}
+
+/* 기본 리셋 및 글로벌 설정 */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html, body {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background-color: #0c121e;
+  font-family: 'PixelFont', monospace, sans-serif;
+  color: #ffffff;
+  -webkit-font-smoothing: none;
+  font-smooth: never;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+#game-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #090d16;
+}
+
+.screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* ==========================================================================
+   2. 타이틀 화면 (시작 배경, 로고, 메뉴 버튼)
+   ========================================================================== */
+#title-screen {
+  background: url('startbackground.png') no-repeat center center;
+  background-size: cover;
+  flex-direction: column;
+  z-index: 10;
+}
+
+#title-snow-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.title-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding-bottom: 30px;
+}
+
+.logo-wrapper {
+  margin-bottom: 35px;
+  animation: logoFloat 2.6s ease-in-out infinite alternate;
+}
+
+.game-logo {
+  max-width: 580px;
+  width: 80vw;
+  height: auto;
+  filter: drop-shadow(0 10px 18px rgba(0, 0, 0, 0.6));
+}
+
+@keyframes logoFloat {
+  0% { transform: translateY(0px) scale(1); }
+  100% { transform: translateY(-12px) scale(1.02); }
+}
+
+.menu-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 320px;
+}
+
+/* 픽셀 버튼 디자인 */
+.pixel-btn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-family: 'PixelFont', monospace;
+  font-size: 22px;
+  font-weight: bold;
+  padding: 16px 24px;
+  cursor: pointer;
+  border: 4px solid #1e293b;
+  border-radius: 4px;
+  outline: none;
+  transition: transform 0.08s ease, filter 0.08s ease, box-shadow 0.08s ease;
+  text-shadow: 2px 2px 0px rgba(0, 0, 0, 0.8);
+}
+
+.primary-btn {
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 0 #0369a1, 0 10px 12px rgba(0, 0, 0, 0.4);
+}
+
+.primary-btn:hover {
+  background: linear-gradient(180deg, #7dd3fc 0%, #0369a1 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 #0369a1, 0 12px 16px rgba(0, 0, 0, 0.5);
+}
+
+.primary-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #0369a1;
+}
+
+.secondary-btn {
+  background: linear-gradient(180deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 6px 0 #b45309, 0 10px 12px rgba(0, 0, 0, 0.4);
+}
+
+.secondary-btn:hover {
+  background: linear-gradient(180deg, #fbbf24 0%, #b45309 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 0 #b45309, 0 12px 16px rgba(0, 0, 0, 0.5);
+}
+
+.secondary-btn:active {
+  transform: translateY(4px);
+  box-shadow: 0 2px 0 #b45309;
+}
+
+.btn-icon {
+  font-size: 24px;
+}
+
+.copyright-tag {
+  margin-top: 36px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.8);
+  text-shadow: 1px 1px 2px #000000;
+  background: rgba(15, 23, 42, 0.65);
+  padding: 6px 14px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* ==========================================================================
+   3. 인게임 화면 (캔버스 + 하단 통합 대시보드 HUD)
+   ========================================================================== */
+#game-screen {
+  background-color: #070b13;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 1. 검은 여백을 채우는 앰비언트 블러 배경 */
+.ambient-backdrop {
+  position: absolute;
+  top: -30px;
+  left: -30px;
+  width: calc(100% + 60px);
+  height: calc(100% + 60px);
+  background: url('background.png') no-repeat center center;
+  background-size: cover;
+  filter: blur(28px) brightness(0.65) saturate(1.2);
+  transform: scale(1.08);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.ambient-backdrop::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle at center, rgba(11, 17, 30, 0.25) 0%, rgba(4, 7, 13, 0.8) 100%);
+}
+
+/* 2. 전체 화면에 흩날리는 앰비언트 눈송이 캔버스 */
+#ambient-snow-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* 3. 캔버스와 HUD를 동일 비율로 묶어주는 반응형 컨테이너 */
+#game-stage {
+  position: relative;
+  z-index: 5;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(56, 189, 248, 0.2);
+  border: 2px solid rgba(56, 189, 248, 0.35);
+  border-radius: 6px;
+}
+
+#game-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* 하단 통합 HUD (경기장 스테이지 아래쪽 남색 바 영역에 완벽 배치) */
+#hud-bottom {
+  position: absolute;
+  bottom: 10px;
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  padding: 0 12px;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#hud-bottom > * {
+  pointer-events: auto;
+}
+
+/* 플레이어 카드 (하단 좌측 / 우측) */
+.bottom-player-section {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #334155;
+  border-radius: 6px;
+  padding: 6px 10px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+
+.left-player {
+  border-left: 5px solid #38bdf8;
+}
+
+.right-player {
+  border-right: 5px solid #f43f5e;
+}
+
+.avatar-box {
+  width: 36px;
+  height: 36px;
+  background: #0284c7;
+  border: 2px solid #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  font-weight: bold;
+  border-radius: 4px;
+  color: #ffffff;
+}
+
+.bot-avatar {
+  background: #e11d48;
+}
+
+.player-name {
+  font-size: 14px;
+  font-weight: bold;
+  margin-bottom: 2px;
+  color: #f8fafc;
+  text-shadow: 1px 1px 0 #000000;
+}
+
+.hearts-row {
+  display: flex;
+  gap: 3px;
+  font-size: 15px;
+}
+
+.text-right {
+  text-align: right;
+}
+
+/* 하단 우측 래퍼 (더미 상태 + 유틸리티 버튼) */
+.bottom-right-section {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.bottom-actions {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-wrap: nowrap;
+}
+
+.pixel-select {
+  font-family: 'PixelFont', monospace;
+  background: #1e293b;
+  color: #f8fafc;
+  border: 2px solid #475569;
+  padding: 4px 5px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  outline: none;
+  white-space: nowrap;
+}
+
+.hud-mini-btn {
+  font-family: 'PixelFont', monospace;
+  background: #334155;
+  color: #f8fafc;
+  border: 2px solid #475569;
+  padding: 4px 6px;
+  font-size: 11px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.1s;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-mini-btn:hover {
+  background: #475569;
+}
+
+.hud-mini-btn.danger {
+  background: #991b1b;
+  border-color: #dc2626;
+}
+
+.hud-mini-btn.danger:hover {
+  background: #b91c1c;
+}
+
+.hud-mini-btn.warning {
+  background: #b45309;
+  border-color: #f59e0b;
+  color: #fffbeb;
+}
+
+.hud-mini-btn.warning:hover {
+  background: #d97706;
+}
+
+/* 중앙 코스트 & 스킬 묶음 */
+.cost-and-skills-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+/* 스킬 슬롯 4종 (구르기, Q, E, 우클릭) */
+.skill-slots-container {
+  display: flex;
+  gap: 8px;
+}
+
+.skill-slot {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  background: #1e293b;
+  border: 2px solid #475569;
+  border-radius: 5px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.4);
+  transition: transform 0.1s, border-color 0.1s;
+}
+
+.skill-slot.ready {
+  border-color: #38bdf8;
+  background: #0f172a;
+}
+
+.skill-slot.no-cost {
+  filter: grayscale(0.8) brightness(0.65);
+  border-color: #475569;
+}
+
+.skill-slot.on-cooldown {
+  filter: brightness(0.5);
+  border-color: #64748b;
+}
+
+.slot-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 17px;
+  height: 17px;
+  background: #9333ea;
+  border: 1px solid #c084fc;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  z-index: 3;
+}
+
+.slot-icon {
+  font-size: 18px;
+  margin-bottom: 1px;
+}
+
+.slot-key {
+  font-size: 10px;
+  font-weight: bold;
+  color: #facc15;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1px 3px;
+  border-radius: 2px;
+}
+
+.slot-name {
+  font-size: 9px;
+  color: #94a3b8;
+  margin-top: 1px;
+}
+
+/* 쿨다운 반투명 오버레이 */
+.cd-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 0%;
+  background: rgba(0, 0, 0, 0.7);
+  z-index: 2;
+  transition: height 0.05s linear;
+}
+
+.cd-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  font-weight: bold;
+  color: #ffffff;
+  text-shadow: 0 0 4px #000000;
+  z-index: 4;
+}
+
+/* 클래시 로얄 스타일 코스트 바 */
+.clash-cost-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(15, 23, 42, 0.92);
+  border: 2px solid #334155;
+  border-radius: 24px;
+  padding: 4px 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+}
+
+.cost-icon-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cost-crystal {
+  font-size: 18px;
+  filter: drop-shadow(0 0 5px #c084fc);
+}
+
+.cost-val {
+  font-size: 17px;
+  font-weight: bold;
+  color: #f0abfc;
+  min-width: 28px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.cost-bar-outer {
+  position: relative;
+  width: 250px;
+  height: 20px;
+  background: #1e1b4b;
+  border: 2px solid #6b21a8;
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.cost-bar-inner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 50%;
+  background: linear-gradient(90deg, #9333ea 0%, #c084fc 70%, #f472b6 100%);
+  transition: width 0.08s ease-out;
+}
+
+.cost-bubble-glow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.6);
+  filter: blur(2px);
+}
+
+.cost-segments {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: space-between;
+  padding: 0 10%;
+  pointer-events: none;
+}
+
+.cost-segments span {
+  width: 2px;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.cost-max-label {
+  font-size: 13px;
+  color: #a855f7;
+  font-weight: bold;
+}
+
+
+
+/* ==========================================================================
+   4. 모달 팝업 스타일링 (픽셀 보더 윈도우)
+   ========================================================================== */
+.modal-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(5, 8, 15, 0.82);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 50;
+  backdrop-filter: blur(4px);
+}
+
+.pixel-modal {
+  width: 90%;
+  max-width: 650px;
+  background: #0f172a;
+  border: 4px solid #38bdf8;
+  border-radius: 8px;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.8), 0 0 20px rgba(56, 189, 248, 0.3);
+  overflow: hidden;
+  animation: modalPop 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes modalPop {
+  0% { transform: scale(0.9); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #0284c7;
+  padding: 12px 20px;
+  border-bottom: 3px solid #0369a1;
+}
+
+.modal-header h2 {
+  font-size: 20px;
+  color: #ffffff;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  color: #ffffff;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.close-btn:hover {
+  color: #fca5a5;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-subtext {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-bottom: 18px;
+}
+
+/* 모드 카드 그리드 */
+.mode-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mode-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: #1e293b;
+  border: 3px solid #334155;
+  border-radius: 6px;
+  padding: 16px 20px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.mode-card.active {
+  border-color: #38bdf8;
+  background: #034468;
+}
+
+.mode-card.active:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(56, 189, 248, 0.3);
+  border-color: #7dd3fc;
+}
+
+.mode-card:not(.active):hover {
+  border-color: #64748b;
+  background: #27354a;
+}
+
+.mode-icon {
+  font-size: 26px;
+}
+
+.mode-title {
+  font-size: 19px;
+  font-weight: bold;
+  color: #ffffff;
+}
+
+.mode-desc {
+  font-size: 13px;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.mode-tag {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+}
+
+.tag-ready {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.tag-wait {
+  background: #64748b;
+  color: #e2e8f0;
+}
+
+/* 스킬 덱 그리드 */
+.deck-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px;
+}
+
+.deck-card {
+  background: #1e293b;
+  border: 3px solid #38bdf8;
+  border-radius: 6px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.deck-card.locked {
+  border-color: #475569;
+  opacity: 0.6;
+}
+
+.deck-key {
+  font-size: 11px;
+  color: #38bdf8;
+  font-weight: bold;
+}
+
+.deck-icon {
+  font-size: 24px;
+}
+
+.deck-title {
+  font-size: 16px;
+  font-weight: bold;
+  color: #f8fafc;
+}
+
+.deck-cost {
+  font-size: 12px;
+  color: #c084fc;
+}
+
+.deck-desc {
+  font-size: 12px;
+  color: #94a3b8;
+  line-height: 1.4;
+}
+
+.deck-status {
+  margin-top: 4px;
+  font-size: 11px;
+  color: #4ade80;
+  font-weight: bold;
+}
+
+/* 매칭 모달 */
+.match-modal {
+  max-width: 450px;
+}
+
+.match-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  padding: 30px 20px;
+}
+
+.spinner-pixel {
+  font-size: 42px;
+  animation: spinSnow 2s linear infinite;
+}
+
+@keyframes spinSnow {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.match-status-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #e0f2fe;
+}
+
+.match-time {
+  font-size: 22px;
+  color: #38bdf8;
+  font-weight: bold;
+}
+
+.match-desc {
+  font-size: 13px;
+  color: #94a3b8;
+  line-height: 1.5;
+}
+
+/* 방 코드 모달 */
+.room-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.room-action-section h3 {
+  font-size: 16px;
+  color: #38bdf8;
+  margin-bottom: 4px;
+}
+
+.room-action-section p {
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 10px;
+}
+
+.pixel-divider {
+  border: none;
+  height: 2px;
+  background: #334155;
+  margin: 8px 0;
+}
+
+.room-input-row {
+  display: flex;
+  gap: 10px;
+}
+
+.pixel-input {
+  flex: 1;
+  background: #020617;
+  border: 3px solid #38bdf8;
+  border-radius: 4px;
+  padding: 10px 14px;
+  font-family: 'PixelFont', monospace;
+  font-size: 16px;
+  color: #ffffff;
+  outline: none;
+}

@@ -1,0 +1,12 @@
+{
+  "name": "snowball-fight-game",
+  "version": "1.0.0",
+  "description": "1:1 Retro Pixel Snowball Fight Game",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "keywords": ["game", "canvas", "pixel-art", "snowball"],
+  "author": "",
+  "license": "ISC"
+}

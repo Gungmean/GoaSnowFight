@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>고아 눈싸움 - 1:1 도트 눈싸움 액션</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="game-container">
+    <!-- ==============================================
+         1. 타이틀 화면 (시작 배경 + 로고 + 메뉴 버튼)
+         ============================================== -->
+    <div id="title-screen" class="screen">
+      <!-- 흩날리는 픽셀 눈 캔버스 -->
+      <canvas id="title-snow-canvas"></canvas>
+
+      <div class="title-content">
+        <!-- 메인 로고 -->
+        <div class="logo-wrapper">
+          <img src="logo.png" alt="고아 눈싸움 로고" class="game-logo pixelated">
+        </div>
+
+        <!-- 메인 메뉴 버튼들 -->
+        <div class="menu-buttons">
+          <button id="btn-start-game" class="pixel-btn primary-btn">
+            <span class="btn-icon">❄️</span> 게임 시작
+          </button>
+          <button id="btn-skill-deck" class="pixel-btn secondary-btn">
+            <span class="btn-icon">⚡</span> 스킬 편성
+          </button>
+        </div>
+
+        <div class="copyright-tag">
+          1:1 Retro Pixel Snowball Fight • WASD & Mouse Aim
+        </div>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         2. 인게임 화면 (경기장 캔버스 + 하단 통합 HUD)
+         ============================================== -->
+    <div id="game-screen" class="screen hidden">
+      <!-- 1. 검은 여백을 채우는 경기장 앰비언트 블러 배경 -->
+      <div class="ambient-backdrop"></div>
+      <!-- 2. 전체 화면 앰비언트 눈 파티클 캔버스 -->
+      <canvas id="ambient-snow-canvas"></canvas>
+
+      <!-- 3. 캔버스와 HUD를 1672x940 비율로 함께 스케일링하는 반응형 스테이지 -->
+      <div id="game-stage">
+        <!-- 메인 렌더링 캔버스 (1672 x 940) -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- 인게임 하단 통합 HUD (경기장 아래쪽 남색 바 영역에 완벽 고정) -->
+        <div id="hud-bottom">
+          <!-- 1. 좌측: 1P 플레이어 상태 (항상 왼쪽) -->
+          <div class="bottom-player-section left-player">
+            <div class="avatar-box">1P</div>
+            <div class="info-box">
+              <div class="player-name">나 (Player 1)</div>
+              <div id="player-hearts" class="hearts-row">
+                <span class="heart active">❤️</span>
+                <span class="heart active">❤️</span>
+                <span class="heart active">❤️</span>
+                <span class="heart active">❤️</span>
+                <span class="heart active">❤️</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 중앙: 스킬 슬롯 및 클래시 로얄 코스트 게이지 -->
+          <div class="cost-and-skills-wrapper">
+            <!-- 스킬 슬롯 목록 (Shift, Q, E, 우클릭) -->
+            <div class="skill-slots-container">
+              <!-- Shift: 구르기 -->
+              <div id="slot-roll" class="skill-slot ready">
+                <div class="slot-badge cost-badge">1</div>
+                <div class="slot-icon">💨</div>
+                <div class="slot-key">SHIFT</div>
+                <div class="slot-name">구르기</div>
+                <div class="cd-overlay"></div>
+                <div class="cd-text"></div>
+              </div>
+
+              <!-- Q: 눈보라 트리플 -->
+              <div id="slot-q" class="skill-slot ready">
+                <div class="slot-badge cost-badge">2</div>
+                <div class="slot-icon">❄️x3</div>
+                <div class="slot-key">Q</div>
+                <div class="slot-name">트리플샷</div>
+                <div class="cd-overlay"></div>
+                <div class="cd-text"></div>
+              </div>
+
+              <!-- E: 빙벽 -->
+              <div id="slot-e" class="skill-slot ready">
+                <div class="slot-badge cost-badge">3</div>
+                <div class="slot-icon">⛄</div>
+                <div class="slot-key">E</div>
+                <div class="slot-name">눈사람벽</div>
+                <div class="cd-overlay"></div>
+                <div class="cd-text"></div>
+              </div>
+
+              <!-- 우클릭: 메가 눈폭탄 -->
+              <div id="slot-rmb" class="skill-slot ready">
+                <div class="slot-badge cost-badge">4</div>
+                <div class="slot-icon">💣</div>
+                <div class="slot-key">우클릭</div>
+                <div class="slot-name">메가눈폭탄</div>
+                <div class="cd-overlay"></div>
+                <div class="cd-text"></div>
+              </div>
+            </div>
+
+            <!-- 클래시 로얄 스타일 엘릭서/코스트 게이지 (최대 10) -->
+            <div class="clash-cost-container">
+              <div class="cost-icon-wrap">
+                <span class="cost-crystal">💧</span>
+                <span id="cost-number" class="cost-val">5.0</span>
+              </div>
+              <div class="cost-bar-outer">
+                <div id="cost-bar-fill" class="cost-bar-inner">
+                  <div class="cost-bubble-glow"></div>
+                </div>
+                <!-- 10개 분할 눈금선 -->
+                <div class="cost-segments">
+                  <span></span><span></span><span></span><span></span>
+                  <span></span><span></span><span></span><span></span>
+                  <span></span>
+                </div>
+              </div>
+              <div class="cost-max-label">/ 10</div>
+            </div>
+          </div>
+
+          <!-- 3. 우측: 2P 상대/더미 상태 및 컨트롤 버튼 -->
+          <div class="bottom-right-section">
+            <!-- 2P / 더미 상태 -->
+            <div class="bottom-player-section right-player">
+              <div class="info-box text-right">
+                <div id="bot-name-label" class="player-name">연습 표적 (더미)</div>
+                <div id="bot-hearts" class="hearts-row">
+                  <span class="heart active">❤️</span>
+                  <span class="heart active">❤️</span>
+                  <span class="heart active">❤️</span>
+                  <span class="heart active">❤️</span>
+                  <span class="heart active">❤️</span>
+                </div>
+              </div>
+              <div class="avatar-box bot-avatar">2P</div>
+            </div>
+
+            <!-- 훈련장 유틸리티 버튼 세트 -->
+            <div class="bottom-actions">
+              <select id="bot-mode-select" class="pixel-select" title="더미 모드 변경">
+                <option value="DUMMY">🎯 정지 표적</option>
+                <option value="MOVING">🏃 무빙 표적</option>
+                <option value="BATTLE">⚔️ AI 대전 봇</option>
+              </select>
+              <button id="btn-toggle-line" class="hud-mini-btn" title="중앙 분할선 끄기 (전체 영역 자유 이동)">🚧 라인 OFF</button>
+              <button id="btn-reset-training" class="hud-mini-btn" title="체력 및 위치 초기화">🔄 초기화</button>
+              <button id="btn-sound-toggle" class="hud-mini-btn" title="사운드 ON/OFF">🔊</button>
+              <button id="btn-fullscreen" class="hud-mini-btn" title="전체화면 전환">⛶</button>
+              <button id="btn-back-to-title" class="hud-mini-btn danger" title="메인 메뉴로 이동">🚪 나가기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         3. 모달: 게임 모드 선택 ("훈련장", "빠른 매칭", "방 코드로 매칭")
+         ============================================== -->
+    <div id="modal-game-modes" class="modal-backdrop hidden">
+      <div class="pixel-modal">
+        <div class="modal-header">
+          <h2>눈싸움 모드 선택</h2>
+          <button id="btn-close-modes" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body mode-grid">
+          <div id="btn-mode-training" class="mode-card active">
+            <div class="mode-icon">🎯</div>
+            <div class="mode-title">훈련장</div>
+            <div class="mode-desc">혼자서 이동, 차징, 조준, 구르기, 스킬을 테스트하고 표적을 맞춰보세요.</div>
+            <div class="mode-tag tag-ready">즉시 플레이 가능</div>
+          </div>
+
+          <div id="btn-mode-quick" class="mode-card">
+            <div class="mode-icon">⚡</div>
+            <div class="mode-title">빠른 매칭</div>
+            <div class="mode-desc">온라인의 다른 눈싸움 상대와 자동으로 1:1 매칭됩니다.</div>
+            <div class="mode-tag tag-wait">멀티 기능 준비 중</div>
+          </div>
+
+          <div id="btn-mode-room" class="mode-card">
+            <div class="mode-icon">🔑</div>
+            <div class="mode-title">방 코드로 매칭</div>
+            <div class="mode-desc">비공개 방을 만들거나 6자리 코드를 입력하여 친구와 1:1 대전합니다.</div>
+            <div class="mode-tag tag-wait">멀티 기능 준비 중</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         4. 모달: 스킬 편성 (3개 스킬 덱 관리)
+         ============================================== -->
+    <div id="modal-skill-deck" class="modal-backdrop hidden">
+      <div class="pixel-modal skill-modal">
+        <div class="modal-header">
+          <h2>스킬 편성 (스킬 덱)</h2>
+          <button id="btn-close-deck" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p class="modal-subtext">게임에서 사용할 3가지 스킬을 편성합니다. (현재 기본 3스킬 장착 중)</p>
+          <div class="deck-grid">
+            <div class="deck-card equipped">
+              <div class="deck-key">Q 키</div>
+              <div class="deck-icon">❄️x3</div>
+              <div class="deck-title">눈보라 트리플</div>
+              <div class="deck-cost">소모 코스트: 2 • 쿨타임: 4.0초</div>
+              <div class="deck-desc">전방 3방향 부채꼴로 눈덩이를 연속 발사하여 넓은 범위를 타격합니다.</div>
+              <div class="deck-status">장착 완료</div>
+            </div>
+
+            <div class="deck-card equipped">
+              <div class="deck-key">E 키</div>
+              <div class="deck-icon">⛄</div>
+              <div class="deck-title">눈사람 빙벽</div>
+              <div class="deck-cost">소모 코스트: 3 • 쿨타임: 7.0초</div>
+              <div class="deck-desc">앞쪽에 단단한 눈사람 빙벽을 세워 날아오는 상대방의 눈덩이를 차단합니다.</div>
+              <div class="deck-status">장착 완료</div>
+            </div>
+
+            <div class="deck-card equipped">
+              <div class="deck-key">우클릭</div>
+              <div class="deck-icon">💣</div>
+              <div class="deck-title">메가 눈폭탄</div>
+              <div class="deck-cost">소모 코스트: 4 • 쿨타임: 8.0초</div>
+              <div class="deck-desc">엄청난 크기의 눈폭탄을 투척하여 명중 시 큰 폭발과 함께 2 피해를 입힙니다.</div>
+              <div class="deck-status">장착 완료</div>
+            </div>
+
+            <div class="deck-card locked">
+              <div class="deck-key">추가 슬롯</div>
+              <div class="deck-icon">🔒</div>
+              <div class="deck-title">빙판 미끄럼틀</div>
+              <div class="deck-cost">소모 코스트: 2</div>
+              <div class="deck-desc">지정 경로에 빙판을 깔아 고속 대시 이동합니다.</div>
+              <div class="deck-status">업데이트 예정</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         5. 모달: 빠른 매칭 대기 창
+         ============================================== -->
+    <div id="modal-quick-match" class="modal-backdrop hidden">
+      <div class="pixel-modal match-modal">
+        <div class="modal-header">
+          <h2>1:1 빠른 매칭 탐색</h2>
+        </div>
+        <div class="modal-body match-body">
+          <div class="spinner-pixel">❄️</div>
+          <div class="match-status-title">상대 플레이어를 찾는 중입니다...</div>
+          <div class="match-time">경과 시간: <span id="match-timer-text">00:00</span></div>
+          <p class="match-desc">
+            ※ 현재 멀티플레이 WebSocket 서버 연동 준비 단계입니다.<br>
+            먼저 <b>훈련장</b>에서 조작과 샷을 자유롭게 테스트해보세요!
+          </p>
+          <button id="btn-cancel-match" class="pixel-btn secondary-btn">매칭 취소</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==============================================
+         6. 모달: 방 코드로 매칭 창
+         ============================================== -->
+    <div id="modal-room-code" class="modal-backdrop hidden">
+      <div class="pixel-modal">
+        <div class="modal-header">
+          <h2>방 코드로 매칭</h2>
+          <button id="btn-close-room" class="close-btn">&times;</button>
+        </div>
+        <div class="modal-body room-body">
+          <div class="room-action-section">
+            <h3>방 생성하기</h3>
+            <p>비공개 방을 만들고 친구에게 6자리 코드를 공유하세요.</p>
+            <button id="btn-create-room" class="pixel-btn primary-btn">새 방 만들기</button>
+          </div>
+          <hr class="pixel-divider">
+          <div class="room-action-section">
+            <h3>방 참가하기</h3>
+            <p>친구가 알려준 6자리 방 코드를 입력하세요.</p>
+            <div class="room-input-row">
+              <input type="text" id="room-code-input" class="pixel-input" placeholder="방 코드 6자리" maxlength="6">
+              <button id="btn-join-room" class="pixel-btn secondary-btn">입장</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 스크립트 로드 순서 -->
+  <script src="js/sound.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/sprites.js"></script>
+  <script src="js/snowball.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/bot.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
