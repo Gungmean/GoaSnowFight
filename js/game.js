@@ -425,8 +425,12 @@ class Game {
     const dt = Math.max(0.001, Math.min(0.05, (currentTime - this.lastTime) / 1000));
     this.lastTime = currentTime;
 
-    this.update(dt);
-    this.render();
+    try {
+      this.update(dt);
+      this.render();
+    } catch (err) {
+      console.error('[Game Loop Error]', err);
+    }
 
     requestAnimationFrame((t) => this.loop(t));
   }

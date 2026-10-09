@@ -318,11 +318,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     }, 80);
   });
 
-  // 훈련장 진입 함수 (게임 진입 시 자동으로 전체화면 전환)
-  async function enterTrainingMode() {
-    if (!isGameReady) {
-      await initPromise;
-    }
+  // 훈련장 진입 함수 (사용자 클릭 제스처가 유효한 동안 즉시 전체화면 및 훈련장 시작)
+  function enterTrainingMode() {
     requestGameFullscreen();
 
     titleScreen.classList.add('hidden');

@@ -31,10 +31,11 @@ class MobileControls {
     // 캔버스 직접 터치 추적
     this.activeCanvasTouchId = null;
 
-    // 모바일/터치 기기 감지
-    this.isTouchDevice = ('ontouchstart' in window) ||
-                         (navigator.maxTouchPoints > 0) ||
-                         window.matchMedia('(pointer: coarse)').matches;
+    // 모바일 기기 감지 (데스크톱 PC 터치스크린/펜 오인식 방지: 실제 스마트폰/태블릿만 감지)
+    const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const isMobileCoarse = window.matchMedia && window.matchMedia('(pointer: coarse) and (max-width: 840px)').matches;
+    this.isMobileDevice = isMobileUA || isMobileCoarse;
+    this.isTouchDevice = this.isMobileDevice;
 
     this.init();
   }
@@ -42,9 +43,9 @@ class MobileControls {
   init() {
     if (!this.container) return;
 
-    // 기본 활성화 조건: 터치 지원 기기이거나 화면 너비 1024 이하
-    const shouldEnable = this.isTouchDevice || window.innerWidth <= 1024;
-    this.setEnabled(shouldEnable);
+    // 기본 활성화: 실제 스마트폰/태블릿 모바일 환경에서만 기본 활성화, PC는 기본 OFF!
+    // (PC 환경에서도 상단 HUD의 [🕹️ 조이스틱] 버튼을 누르면 언제든지 자유롭게 켜고 끌 수 있습니다)
+    this.setEnabled(this.isMobileDevice);
 
     this.bindJoystickEvents();
     this.bindActionEvents();
@@ -381,7 +382,7 @@ class MobileControls {
     if (!canvas) return;
 
     canvas.addEventListener('touchstart', (e) => {
-      if (!this.game.isRunning) return;
+      if (!this.enabled || !this.game.isRunning) return;
       // 우측 상단/중앙 등 조이스틱 영역 외 터치 시 캔버스 조준 & 투척 시작
       const t = e.changedTouches[0];
       const stageRect = canvas.getBoundingClientRect();
@@ -403,7 +404,7 @@ class MobileControls {
     }, { passive: false });
 
     canvas.addEventListener('touchmove', (e) => {
-      if (this.activeCanvasTouchId === null) return;
+      if (!this.enabled || this.activeCanvasTouchId === null) return;
       for (let i = 0; i < e.changedTouches.length; i++) {
         const t = e.changedTouches[i];
         if (t.identifier === this.activeCanvasTouchId) {
@@ -418,7 +419,7 @@ class MobileControls {
     }, { passive: false });
 
     const endCanvasTouch = (e) => {
-      if (this.activeCanvasTouchId === null) return;
+      if (!this.enabled || this.activeCanvasTouchId === null) return;
       for (let i = 0; i < e.changedTouches.length; i++) {
         if (e.changedTouches[i].identifier === this.activeCanvasTouchId) {
           this.activeCanvasTouchId = null;
@@ -446,11 +447,10 @@ class MobileControls {
   bindOrientationEvents() {
     const checkOrientation = () => {
       if (!this.rotatePrompt) return;
-      // 모바일 기기이고 세로 모드(높이가 너비보다 큼)인 경우
+      // 실제 모바일 기기이면서 세로 모드인 경우에만 회전 안내 노출 (데스크톱 PC에서는 노출 안 함)
       const isPortrait = window.innerHeight > window.innerWidth;
-      const isMobileScreen = window.innerWidth <= 840 || this.isTouchDevice;
 
-      if (isPortrait && isMobileScreen) {
+      if (this.isMobileDevice && isPortrait) {
         this.rotatePrompt.classList.remove('hidden');
       } else {
         this.rotatePrompt.classList.add('hidden');
