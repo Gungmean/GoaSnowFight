@@ -398,9 +398,9 @@ class Game {
       if (!this.canPlayerAct()) return;
       this.sound.unlock();
 
-      // Q 스킬
+      // 단일 선택 스킬 (Q 키 전용)
       if (e.key === 'q' || e.key === 'Q') {
-        const res = this.player.skillManager.castQ(
+        const res = this.player.skillManager.castEquippedSkill(
           this.mouseVirtualX,
           this.mouseVirtualY,
           this.snowballs,
@@ -408,21 +408,7 @@ class Game {
           this.sound
         );
         if (res && this.mode === 'MULTIPLAYER') {
-          this.network.sendSkill('q', res);
-        }
-        return;
-      }
-
-      // E 스킬
-      if (e.key === 'e' || e.key === 'E') {
-        const res = this.player.skillManager.castE(
-          this.mouseVirtualX,
-          this.mouseVirtualY,
-          this.particles,
-          this.sound
-        );
-        if (res && this.mode === 'MULTIPLAYER') {
-          this.network.sendSkill('e', res);
+          this.network.sendSkill(res.skillType, res.payload);
         }
         return;
       }
@@ -443,27 +429,15 @@ class Game {
       this.player.setAim(v.x, v.y);
     });
 
-    // 마우스 좌클릭 차징
+    // 마우스 좌클릭 차징 (브롤스타즈 탄창 확인)
     this.canvas.addEventListener('mousedown', (e) => {
       if (!this.canPlayerAct()) return;
       this.sound.unlock();
 
       if (e.button === 0) {
-        // 좌클릭: 차징 시작
-        this.isMouseDown = true;
-        this.player.startCharging();
-      } else if (e.button === 2) {
-        // 우클릭: 메가 눈폭탄 스킬
-        e.preventDefault();
-        const res = this.player.skillManager.castRMB(
-          this.mouseVirtualX,
-          this.mouseVirtualY,
-          this.snowballs,
-          this.particles,
-          this.sound
-        );
-        if (res && this.mode === 'MULTIPLAYER') {
-          this.network.sendSkill('rmb', res);
+        // 좌클릭: 탄창이 1칸 이상일 때 차징 시작
+        if (this.player.startCharging(this.particles, this.sound)) {
+          this.isMouseDown = true;
         }
       }
     });

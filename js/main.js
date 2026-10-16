@@ -43,13 +43,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 더미 모드 버튼들
   const botModeSelect = document.getElementById('bot-mode-select');
 
-  // HUD 요소들
-  const costBarFill = document.getElementById('cost-bar-fill');
-  const costNumber = document.getElementById('cost-number');
+  // HUD 요소들 (4칸 탄창 바 & Shift 구르기 + Q 단일 스킬 슬롯)
+  const ammoCountText = document.getElementById('ammo-count-text');
+  const ammoFills = [
+    document.getElementById('ammo-fill-0'),
+    document.getElementById('ammo-fill-1'),
+    document.getElementById('ammo-fill-2'),
+    document.getElementById('ammo-fill-3')
+  ];
   const slotRoll = document.getElementById('slot-roll');
   const slotQ = document.getElementById('slot-q');
-  const slotE = document.getElementById('slot-e');
-  const slotRmb = document.getElementById('slot-rmb');
+  const slotQIcon = document.getElementById('slot-q-icon');
+  const slotQName = document.getElementById('slot-q-name');
+  const mobileQIcon = document.getElementById('mobile-q-icon');
+  const mobileQLabel = document.getElementById('mobile-q-label');
+  const modalCurrentSkill = document.getElementById('modal-current-skill');
 
   const playerHeartsContainer = document.getElementById('player-hearts');
   const playerNameLabel = document.getElementById('player-name-label');
@@ -275,9 +283,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     game.network.joinRoom(code, getPlayerNickname());
   });
 
-  // 5. "스킬 편성" 클릭 -> 스킬 덱 모달 열기
+  // ==========================================
+  // 5. 단일 장착 스킬(Q) 선택 및 UI 동기화
+  // ==========================================
+  function syncEquippedSkillUI() {
+    const sk = game.player.skillManager.getEquippedSkill();
+    if (slotQIcon) slotQIcon.innerText = sk.icon;
+    if (slotQName) slotQName.innerText = sk.shortName || sk.name;
+    if (mobileQIcon) mobileQIcon.innerText = sk.icon;
+    if (mobileQLabel) mobileQLabel.innerText = sk.shortName || sk.name;
+    if (modalCurrentSkill) modalCurrentSkill.innerText = `${sk.icon} ${sk.name}`;
+
+    const deckCards = document.querySelectorAll('.deck-card.selectable');
+    deckCards.forEach((card) => {
+      const cardSkillId = card.getAttribute('data-skill-id');
+      const statusElem = card.querySelector('.deck-status');
+      if (cardSkillId === sk.id) {
+        card.classList.add('equipped');
+        if (statusElem) statusElem.innerText = '✓ 현재 Q 장착 중';
+      } else {
+        card.classList.remove('equipped');
+        if (statusElem) statusElem.innerText = '클릭하여 Q에 장착';
+      }
+    });
+  }
+
+  // 초기 장착 스킬 UI 반영
+  syncEquippedSkillUI();
+
+  // 스킬 카드 클릭 시 해당 스킬을 Q 슬롯에 단일 장착
+  document.querySelectorAll('.deck-card.selectable').forEach((card) => {
+    card.addEventListener('click', () => {
+      const skillId = card.getAttribute('data-skill-id');
+      if (skillId && game.player.skillManager.setEquippedSkill(skillId)) {
+        window.sounds.playClick();
+        syncEquippedSkillUI();
+      }
+    });
+  });
+
   btnSkillDeck.addEventListener('click', () => {
     window.sounds.playClick();
+    syncEquippedSkillUI();
     modalSkillDeck.classList.remove('hidden');
   });
 
@@ -346,7 +393,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 9-2. 하단 HUD 스킬 슬롯 터치/클릭 즉시 발동 지원
+  // 9-2. 하단 HUD 스킬 슬롯 터치/클릭 즉시 발동 지원 (Shift 구르기 + Q 단일 장착 스킬)
   if (slotRoll) {
     slotRoll.addEventListener('click', () => {
       if (!game.canPlayerAct()) return;
@@ -357,30 +404,11 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (slotQ) {
     slotQ.addEventListener('click', () => {
       if (!game.canPlayerAct()) return;
-      const target = mobileControls.getAutoTargetCoords();
-      const res = game.player.skillManager.castQ(target.x, target.y, game.snowballs, game.particles, game.sound);
+      const eqId = game.player.skillManager.equippedSkillId;
+      const target = mobileControls.getAutoTargetCoords(eqId === 'e' ? 110 : 800);
+      const res = game.player.skillManager.castEquippedSkill(target.x, target.y, game.snowballs, game.particles, game.sound);
       if (res && game.mode === 'MULTIPLAYER') {
-        game.network.sendSkill('q', res);
-      }
-    });
-  }
-  if (slotE) {
-    slotE.addEventListener('click', () => {
-      if (!game.canPlayerAct()) return;
-      const target = mobileControls.getAutoTargetCoords(110);
-      const res = game.player.skillManager.castE(target.x, target.y, game.particles, game.sound);
-      if (res && game.mode === 'MULTIPLAYER') {
-        game.network.sendSkill('e', res);
-      }
-    });
-  }
-  if (slotRmb) {
-    slotRmb.addEventListener('click', () => {
-      if (!game.canPlayerAct()) return;
-      const target = mobileControls.getAutoTargetCoords();
-      const res = game.player.skillManager.castRMB(target.x, target.y, game.snowballs, game.particles, game.sound);
-      if (res && game.mode === 'MULTIPLAYER') {
-        game.network.sendSkill('rmb', res);
+        game.network.sendSkill(res.skillType, res.payload);
       }
     });
   }
@@ -455,29 +483,42 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   // ==========================================
-  // HUD 갱신 루프 (HP 하트, 클래시 로얄 코스트 바, 스킬 쿨다운)
+  // HUD 갱신 루프 (HP 하트, 브롤스타즈 4칸 탄창 바, 구르기 & Q 스킬 쿨다운)
   // ==========================================
   function updateHUD() {
     if (game.isRunning) {
       const p = game.player;
       const b = game.bot;
 
-      // 1. 코스트 바 갱신 (0 ~ 10)
-      const costPct = (p.cost / p.maxCost) * 100;
-      costBarFill.style.width = `${costPct}%`;
-      costNumber.innerText = `${Math.floor(p.cost * 10) / 10}`;
+      // 1. 브롤스타즈 스타일 4칸 탄창(애모) 바 갱신
+      const fullAmmo = Math.floor(p.ammo);
+      const partialAmmo = p.ammo - fullAmmo;
+      if (ammoCountText) {
+        ammoCountText.innerText = `${fullAmmo} / ${p.maxAmmo}`;
+      }
+      for (let i = 0; i < p.maxAmmo; i++) {
+        const fillEl = ammoFills[i];
+        if (!fillEl) continue;
+        if (i < fullAmmo) {
+          fillEl.style.width = '100%';
+          fillEl.classList.add('full');
+          fillEl.classList.remove('reloading');
+        } else if (i === fullAmmo && partialAmmo > 0) {
+          fillEl.style.width = `${Math.floor(partialAmmo * 100)}%`;
+          fillEl.classList.remove('full');
+          fillEl.classList.add('reloading');
+        } else {
+          fillEl.style.width = '0%';
+          fillEl.classList.remove('full', 'reloading');
+        }
+      }
 
-      // 2. 구르기 슬롯
-      updateSlotCooldown(slotRoll, p.currentRollCooldown, p.rollCooldown, p.cost >= 1);
+      // 2. 구르기 슬롯 (코스트 없음, 쿨타임만 표시)
+      updateSlotCooldown(slotRoll, p.currentRollCooldown, p.rollCooldown);
 
-      // 3. 스킬 슬롯 Q, E, RMB
-      const skQ = p.skillManager.skills.q;
-      const skE = p.skillManager.skills.e;
-      const skRmb = p.skillManager.skills.rmb;
-
-      updateSlotCooldown(slotQ, skQ.currentCooldown, skQ.cooldown, p.cost >= skQ.cost);
-      updateSlotCooldown(slotE, skE.currentCooldown, skE.cooldown, p.cost >= skE.cost);
-      updateSlotCooldown(slotRmb, skRmb.currentCooldown, skRmb.cooldown, p.cost >= skRmb.cost);
+      // 3. 단일 장착 스킬 Q 슬롯 (코스트 없음, 쿨타임만 표시)
+      const eqSkill = p.skillManager.getEquippedSkill();
+      updateSlotCooldown(slotQ, eqSkill.currentCooldown, eqSkill.cooldown);
 
       // 4. 플레이어 & 봇/상대방 하트 UI 갱신
       renderHearts(playerHeartsContainer, p.hp, p.maxHp);
@@ -496,7 +537,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     requestAnimationFrame(updateHUD);
   }
 
-  function updateSlotCooldown(slotElem, curCd, maxCd, hasCost) {
+  function updateSlotCooldown(slotElem, curCd, maxCd) {
     if (!slotElem) return;
     const overlay = slotElem.querySelector('.cd-overlay');
     const text = slotElem.querySelector('.cd-text');
@@ -512,16 +553,10 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     } else {
       slotElem.classList.remove('on-cooldown');
+      slotElem.classList.remove('no-cost');
+      slotElem.classList.add('ready');
       if (overlay) overlay.style.height = '0%';
       if (text) text.innerText = '';
-
-      if (hasCost) {
-        slotElem.classList.add('ready');
-        slotElem.classList.remove('no-cost');
-      } else {
-        slotElem.classList.remove('ready');
-        slotElem.classList.add('no-cost');
-      }
     }
   }
 

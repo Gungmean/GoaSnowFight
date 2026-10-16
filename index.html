@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>고아 눈싸움 - 1:1 도트 눈싸움 액션</title>
-  <link rel="stylesheet" href="style.css?v=20261016_2">
+  <link rel="stylesheet" href="style.css?v=20261016_3">
 </head>
 <body>
   <div id="game-container">
@@ -96,28 +96,13 @@
             </div>
           </div>
 
-          <!-- 우측: 액션 버튼 존 (스킬 3종 + 구르기 + 조준 투척) -->
+          <!-- 우측: 액션 버튼 존 (단일 선택 스킬 Q + 구르기 + 조준 투척) -->
           <div id="mobile-action-zone" class="mobile-action-zone">
-            <!-- 보조 스킬 (Q, E, 우클릭) -->
+            <!-- 단일 선택 스킬 (Q 슬롯) -->
             <div class="mobile-skills-row">
-              <button type="button" id="mobile-btn-q" class="mobile-skill-btn ready" title="트리플 샷 (Q)">
-                <span class="m-cost">2</span>
-                <span class="m-icon">❄️x3</span>
-                <span class="m-label">트리플</span>
-                <div class="m-cd-overlay"></div>
-                <div class="m-cd-text"></div>
-              </button>
-              <button type="button" id="mobile-btn-e" class="mobile-skill-btn ready" title="눈사람 빙벽 (E)">
-                <span class="m-cost">3</span>
-                <span class="m-icon">⛄</span>
-                <span class="m-label">빙벽</span>
-                <div class="m-cd-overlay"></div>
-                <div class="m-cd-text"></div>
-              </button>
-              <button type="button" id="mobile-btn-rmb" class="mobile-skill-btn ready" title="메가 눈폭탄 (우클릭)">
-                <span class="m-cost">4</span>
-                <span class="m-icon">💣</span>
-                <span class="m-label">폭탄</span>
+              <button type="button" id="mobile-btn-q" class="mobile-skill-btn ready" title="장착 스킬 (Q)">
+                <span id="mobile-q-icon" class="m-icon">❄️x3</span>
+                <span id="mobile-q-label" class="m-label">트리플샷</span>
                 <div class="m-cd-overlay"></div>
                 <div class="m-cd-text"></div>
               </button>
@@ -126,7 +111,6 @@
             <!-- 메인 액션 버튼 (구르기 & 던지기) -->
             <div class="mobile-main-actions">
               <button type="button" id="mobile-btn-roll" class="mobile-action-btn btn-roll ready" title="회피 구르기 (Shift)">
-                <span class="m-cost">1</span>
                 <span class="m-icon">💨</span>
                 <span class="m-label">구르기</span>
                 <div class="m-cd-overlay"></div>
@@ -167,13 +151,12 @@
             </div>
           </div>
 
-          <!-- 2. 중앙: 스킬 슬롯 및 클래시 로얄 코스트 게이지 -->
+          <!-- 2. 중앙: 스킬 슬롯(Shift 구르기 + Q 단일 스킬) 및 브롤스타즈식 4칸 눈덩이 탄창 게이지 -->
           <div class="cost-and-skills-wrapper">
-            <!-- 스킬 슬롯 목록 (Shift, Q, E, 우클릭) -->
+            <!-- 스킬 슬롯 목록 (Shift 구르기 + Q 단일 장착 스킬, 코스트 없음 / 오직 쿨타임) -->
             <div class="skill-slots-container">
               <!-- Shift: 구르기 -->
-              <div id="slot-roll" class="skill-slot ready">
-                <div class="slot-badge cost-badge">1</div>
+              <div id="slot-roll" class="skill-slot ready" title="회피 구르기 (Shift)">
                 <div class="slot-icon">💨</div>
                 <div class="slot-key">SHIFT</div>
                 <div class="slot-name">구르기</div>
@@ -181,55 +164,28 @@
                 <div class="cd-text"></div>
               </div>
 
-              <!-- Q: 눈보라 트리플 -->
-              <div id="slot-q" class="skill-slot ready">
-                <div class="slot-badge cost-badge">2</div>
-                <div class="slot-icon">❄️x3</div>
+              <!-- Q: 선택한 단일 스킬 -->
+              <div id="slot-q" class="skill-slot ready" title="장착 스킬 발동 (Q)">
+                <div id="slot-q-icon" class="slot-icon">❄️x3</div>
                 <div class="slot-key">Q</div>
-                <div class="slot-name">트리플샷</div>
-                <div class="cd-overlay"></div>
-                <div class="cd-text"></div>
-              </div>
-
-              <!-- E: 빙벽 -->
-              <div id="slot-e" class="skill-slot ready">
-                <div class="slot-badge cost-badge">3</div>
-                <div class="slot-icon">⛄</div>
-                <div class="slot-key">E</div>
-                <div class="slot-name">눈사람벽</div>
-                <div class="cd-overlay"></div>
-                <div class="cd-text"></div>
-              </div>
-
-              <!-- 우클릭: 메가 눈폭탄 -->
-              <div id="slot-rmb" class="skill-slot ready">
-                <div class="slot-badge cost-badge">4</div>
-                <div class="slot-icon">💣</div>
-                <div class="slot-key">우클릭</div>
-                <div class="slot-name">메가눈폭탄</div>
+                <div id="slot-q-name" class="slot-name">트리플샷</div>
                 <div class="cd-overlay"></div>
                 <div class="cd-text"></div>
               </div>
             </div>
 
-            <!-- 클래시 로얄 스타일 엘릭서/코스트 게이지 (최대 10) -->
-            <div class="clash-cost-container">
-              <div class="cost-icon-wrap">
-                <span class="cost-crystal">💧</span>
-                <span id="cost-number" class="cost-val">5.0</span>
+            <!-- 브롤스타즈 스타일 4칸 눈덩이 탄창 바 (1칸당 1초 장전) -->
+            <div class="brawl-ammo-container" title="눈덩이 탄창 (최대 4발 • 1초당 1발 장전)">
+              <div class="ammo-icon-wrap">
+                <span class="ammo-snow-icon">❄️</span>
+                <span id="ammo-count-text" class="ammo-count-val">4 / 4</span>
               </div>
-              <div class="cost-bar-outer">
-                <div id="cost-bar-fill" class="cost-bar-inner">
-                  <div class="cost-bubble-glow"></div>
-                </div>
-                <!-- 10개 분할 눈금선 -->
-                <div class="cost-segments">
-                  <span></span><span></span><span></span><span></span>
-                  <span></span><span></span><span></span><span></span>
-                  <span></span>
-                </div>
+              <div class="ammo-slots-row">
+                <div class="ammo-slot-box"><div id="ammo-fill-0" class="ammo-slot-fill full"></div></div>
+                <div class="ammo-slot-box"><div id="ammo-fill-1" class="ammo-slot-fill full"></div></div>
+                <div class="ammo-slot-box"><div id="ammo-fill-2" class="ammo-slot-fill full"></div></div>
+                <div class="ammo-slot-box"><div id="ammo-fill-3" class="ammo-slot-fill full"></div></div>
               </div>
-              <div class="cost-max-label">/ 10</div>
             </div>
           </div>
 
@@ -287,17 +243,17 @@
           <h2>눈싸움 모드 선택</h2>
           <button id="btn-close-modes" class="close-btn">&times;</button>
         </div>
-        <!-- 현재 접속 닉네임 표시 바 -->
+        <!-- 현재 접속 닉네임 & 장착 스킬 표시 바 -->
         <div class="modal-nick-bar">
-          <span class="m-nick-tag">접속 닉네임:</span>
-          <span id="modal-current-nick" class="m-nick-val">눈싸움고수</span>
+          <span class="m-nick-tag">닉네임: <strong id="modal-current-nick" class="m-nick-val">눈싸움고수</strong></span>
+          <span class="m-nick-tag">Q 스킬: <strong id="modal-current-skill" class="m-nick-val">❄️x3 눈보라 트리플</strong></span>
           <button type="button" id="btn-modal-edit-nick" class="m-nick-edit-btn" title="타이틀에서 닉네임 변경">✏️ 변경</button>
         </div>
         <div class="modal-body mode-grid">
           <div id="btn-mode-training" class="mode-card active">
             <div class="mode-icon">🎯</div>
             <div class="mode-title">훈련장</div>
-            <div class="mode-desc">혼자서 이동, 차징, 조준, 구르기, 스킬을 테스트하고 표적을 맞춰보세요.</div>
+            <div class="mode-desc">혼자서 이동, 4칸 탄창 장전, 차징 조준, 구르기, 선택한 Q 스킬을 테스트해보세요.</div>
             <div class="mode-tag tag-ready">즉시 플레이 가능</div>
           </div>
 
@@ -319,51 +275,51 @@
     </div>
 
     <!-- ==============================================
-         4. 모달: 스킬 편성 (3개 스킬 덱 관리)
+         4. 모달: 스킬 편성 (단 1개의 스킬만 Q 슬롯에 선택 장착!)
          ============================================== -->
     <div id="modal-skill-deck" class="modal-backdrop hidden">
       <div class="pixel-modal skill-modal">
         <div class="modal-header">
-          <h2>스킬 편성 (스킬 덱)</h2>
+          <h2>스킬 선택 (Q 슬롯 단일 장착)</h2>
           <button id="btn-close-deck" class="close-btn">&times;</button>
         </div>
         <div class="modal-body">
-          <p class="modal-subtext">게임에서 사용할 3가지 스킬을 편성합니다. (현재 기본 3스킬 장착 중)</p>
+          <p class="modal-subtext">게임에서 사용할 <strong>오직 1개의 스킬</strong>을 선택하세요! 선택한 스킬은 <strong>[Q] 키</strong>에 할당되며 코스트 없이 쿨타임만으로 발동합니다.</p>
           <div class="deck-grid">
-            <div class="deck-card equipped">
-              <div class="deck-key">Q 키</div>
+            <div class="deck-card selectable equipped" data-skill-id="q">
+              <div class="deck-key">Q 슬롯 장착 가능</div>
               <div class="deck-icon">❄️x3</div>
               <div class="deck-title">눈보라 트리플</div>
-              <div class="deck-cost">소모 코스트: 2 • 쿨타임: 4.0초</div>
-              <div class="deck-desc">전방 3방향 부채꼴로 눈덩이를 연속 발사하여 넓은 범위를 타격합니다.</div>
-              <div class="deck-status">장착 완료</div>
+              <div class="deck-cost">코스트 없음 • 쿨타임: 5.0초</div>
+              <div class="deck-desc">전방 3방향 부채꼴로 눈덩이를 동시에 발사하여 넓은 범위를 견제합니다.</div>
+              <div class="deck-status">✓ 현재 Q 장착 중</div>
             </div>
 
-            <div class="deck-card equipped">
-              <div class="deck-key">E 키</div>
+            <div class="deck-card selectable" data-skill-id="e">
+              <div class="deck-key">Q 슬롯 장착 가능</div>
               <div class="deck-icon">⛄</div>
               <div class="deck-title">눈사람 빙벽</div>
-              <div class="deck-cost">소모 코스트: 3 • 쿨타임: 7.0초</div>
+              <div class="deck-cost">코스트 없음 • 쿨타임: 8.0초</div>
               <div class="deck-desc">앞쪽에 단단한 눈사람 빙벽을 세워 날아오는 상대방의 눈덩이를 차단합니다.</div>
-              <div class="deck-status">장착 완료</div>
+              <div class="deck-status">클릭하여 Q에 장착</div>
             </div>
 
-            <div class="deck-card equipped">
-              <div class="deck-key">우클릭</div>
+            <div class="deck-card selectable" data-skill-id="rmb">
+              <div class="deck-key">Q 슬롯 장착 가능</div>
               <div class="deck-icon">💣</div>
               <div class="deck-title">메가 눈폭탄</div>
-              <div class="deck-cost">소모 코스트: 4 • 쿨타임: 8.0초</div>
+              <div class="deck-cost">코스트 없음 • 쿨타임: 9.0초</div>
               <div class="deck-desc">엄청난 크기의 눈폭탄을 투척하여 명중 시 큰 폭발과 함께 2 피해를 입힙니다.</div>
-              <div class="deck-status">장착 완료</div>
+              <div class="deck-status">클릭하여 Q에 장착</div>
             </div>
 
             <div class="deck-card locked">
-              <div class="deck-key">추가 슬롯</div>
+              <div class="deck-key">추후 업데이트</div>
               <div class="deck-icon">🔒</div>
               <div class="deck-title">빙판 미끄럼틀</div>
-              <div class="deck-cost">소모 코스트: 2</div>
+              <div class="deck-cost">업데이트 예정</div>
               <div class="deck-desc">지정 경로에 빙판을 깔아 고속 대시 이동합니다.</div>
-              <div class="deck-status">업데이트 예정</div>
+              <div class="deck-status">잠김</div>
             </div>
           </div>
         </div>
@@ -424,18 +380,18 @@
     </div>
   </div>
 
-  <!-- 스크립트 로드 순서 (캐시 방지 v=20261016_2 적용) -->
-  <script src="js/sound.js?v=20261016_2"></script>
-  <script src="js/particles.js?v=20261016_2"></script>
-  <script src="js/sprites.js?v=20261016_2"></script>
-  <script src="js/snowball.js?v=20261016_2"></script>
-  <script src="js/skills.js?v=20261016_2"></script>
-  <script src="js/player.js?v=20261016_2"></script>
-  <script src="js/remotePlayer.js?v=20261016_2"></script>
-  <script src="js/bot.js?v=20261016_2"></script>
-  <script src="js/network.js?v=20261016_2"></script>
-  <script src="js/mobileControls.js?v=20261016_2"></script>
-  <script src="js/game.js?v=20261016_2"></script>
-  <script src="js/main.js?v=20261016_2"></script>
+  <!-- 스크립트 로드 순서 (캐시 방지 v=20261016_3 적용) -->
+  <script src="js/sound.js?v=20261016_3"></script>
+  <script src="js/particles.js?v=20261016_3"></script>
+  <script src="js/sprites.js?v=20261016_3"></script>
+  <script src="js/snowball.js?v=20261016_3"></script>
+  <script src="js/skills.js?v=20261016_3"></script>
+  <script src="js/player.js?v=20261016_3"></script>
+  <script src="js/remotePlayer.js?v=20261016_3"></script>
+  <script src="js/bot.js?v=20261016_3"></script>
+  <script src="js/network.js?v=20261016_3"></script>
+  <script src="js/mobileControls.js?v=20261016_3"></script>
+  <script src="js/game.js?v=20261016_3"></script>
+  <script src="js/main.js?v=20261016_3"></script>
 </body>
 </html>

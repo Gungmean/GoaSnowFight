@@ -30,7 +30,10 @@ class TrainingBot {
     this.moveDirX = 0;
     this.moveDirY = 0;
 
-    // 차징 & 공격
+    // 차징 & 공격 & 브롤스타즈식 4칸 탄창
+    this.maxAmmo = 4;
+    this.ammo = 4;
+    this.ammoReloadRate = 1.0;
     this.isCharging = false;
     this.chargeRatio = 0;
     this.chargeTimer = 0;
@@ -55,7 +58,7 @@ class TrainingBot {
 
     // 애니메이션
     this.animName = 'idle';
-    this.animTimer = 0;
+    this.animTimer = 'idle' ? 0 : 0;
   }
 
   setMode(newMode) {
@@ -104,6 +107,7 @@ class TrainingBot {
   respawn(particles, sound) {
     this.hp = this.maxHp;
     this.isDead = false;
+    this.ammo = this.maxAmmo;
     this.x = this.startX;
     this.y = this.startY;
     this.isCharging = false;
@@ -137,6 +141,9 @@ class TrainingBot {
       }
       return;
     }
+
+    // 탄창 충전
+    this.ammo = Math.min(this.maxAmmo, this.ammo + this.ammoReloadRate * dt);
 
     // 플레이어를 향해 시선 유지
     if (player && !this.isRolling) {
@@ -225,7 +232,8 @@ class TrainingBot {
         this.isThrowing = true;
         this.throwTimer = 0;
 
-        if (player) {
+        if (player && this.ammo >= 1) {
+          this.ammo = Math.max(0, this.ammo - 1);
           const dirX = player.x - this.x;
           const dirY = player.y - this.y;
           const sb = new Snowball({
@@ -253,8 +261,8 @@ class TrainingBot {
         this.moveDirX /= len;
         this.moveDirY /= len;
 
-        // 50% 확률로 차징 공격 시작
-        if (Math.random() < 0.65 && !player.isDead) {
+        // 탄창이 1칸 이상일 때 차징 공격 시작
+        if (Math.random() < 0.65 && !player.isDead && this.ammo >= 1) {
           this.isCharging = true;
           this.chargeTimer = 0;
           this.chargeRatio = 0;

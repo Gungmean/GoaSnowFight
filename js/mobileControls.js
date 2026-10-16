@@ -208,12 +208,17 @@ class MobileControls {
       const startThrow = (clientX, clientY, touchId) => {
         if (!this.enabled || !this.game.canPlayerAct()) return;
         this.game.sound.unlock();
+
+        // 탄창이 1칸 이상 있을 때만 차징 시작
+        if (!this.game.player.startCharging(this.game.particles, this.game.sound)) {
+          return;
+        }
+
         this.activeThrowTouchId = touchId;
         this.throwOriginX = clientX;
         this.throwOriginY = clientY;
 
         this.game.isMouseDown = true;
-        this.game.player.startCharging();
         this.btnThrow.classList.add('charging');
 
         // 기본 타겟을 향해 오토 에임 설정
@@ -316,14 +321,15 @@ class MobileControls {
       this.btnRoll.addEventListener('click', doRoll);
     }
 
-    // 2-3. [스킬 Q (트리플 샷)] 버튼
+    // 2-3. [단일 장착 스킬 (Q)] 버튼
     if (this.btnQ) {
       const doQ = (e) => {
         e.preventDefault();
         if (!this.game.canPlayerAct()) return;
         this.game.sound.unlock();
-        const target = this.getAutoTargetCoords();
-        const res = this.game.player.skillManager.castQ(
+        const eqId = this.game.player.skillManager.equippedSkillId;
+        const target = this.getAutoTargetCoords(eqId === 'e' ? 110 : 800);
+        const res = this.game.player.skillManager.castEquippedSkill(
           target.x,
           target.y,
           this.game.snowballs,
@@ -331,54 +337,11 @@ class MobileControls {
           this.game.sound
         );
         if (res && this.game.mode === 'MULTIPLAYER') {
-          this.game.network.sendSkill('q', res);
+          this.game.network.sendSkill(res.skillType, res.payload);
         }
       };
       this.btnQ.addEventListener('touchstart', doQ, { passive: false });
       this.btnQ.addEventListener('click', doQ);
-    }
-
-    // 2-4. [스킬 E (눈사람 빙벽)] 버튼
-    if (this.btnE) {
-      const doE = (e) => {
-        e.preventDefault();
-        if (!this.game.canPlayerAct()) return;
-        this.game.sound.unlock();
-        const target = this.getAutoTargetCoords(110);
-        const res = this.game.player.skillManager.castE(
-          target.x,
-          target.y,
-          this.game.particles,
-          this.game.sound
-        );
-        if (res && this.game.mode === 'MULTIPLAYER') {
-          this.game.network.sendSkill('e', res);
-        }
-      };
-      this.btnE.addEventListener('touchstart', doE, { passive: false });
-      this.btnE.addEventListener('click', doE);
-    }
-
-    // 2-5. [스킬 우클릭 (메가 눈폭탄)] 버튼
-    if (this.btnRmb) {
-      const doRmb = (e) => {
-        e.preventDefault();
-        if (!this.game.canPlayerAct()) return;
-        this.game.sound.unlock();
-        const target = this.getAutoTargetCoords();
-        const res = this.game.player.skillManager.castRMB(
-          target.x,
-          target.y,
-          this.game.snowballs,
-          this.game.particles,
-          this.game.sound
-        );
-        if (res && this.game.mode === 'MULTIPLAYER') {
-          this.game.network.sendSkill('rmb', res);
-        }
-      };
-      this.btnRmb.addEventListener('touchstart', doRmb, { passive: false });
-      this.btnRmb.addEventListener('click', doRmb);
     }
   }
 
@@ -399,15 +362,17 @@ class MobileControls {
       // 화면 우측 절반 터치 시 조준 투척 활성화
       if (relativeX > stageRect.width * 0.35 && this.activeCanvasTouchId === null) {
         e.preventDefault();
-        this.activeCanvasTouchId = t.identifier;
         this.game.sound.unlock();
-        this.game.isMouseDown = true;
 
         const v = this.game.screenToVirtual(t.clientX, t.clientY);
         this.game.mouseVirtualX = v.x;
         this.game.mouseVirtualY = v.y;
         this.game.player.setAim(v.x, v.y);
-        this.game.player.startCharging();
+
+        if (this.game.player.startCharging(this.game.particles, this.game.sound)) {
+          this.activeCanvasTouchId = t.identifier;
+          this.game.isMouseDown = true;
+        }
       }
     }, { passive: false });
 
@@ -520,20 +485,16 @@ class MobileControls {
 
     const p = this.game.player;
 
-    // 1. 구르기 버튼 쿨다운
-    this.updateButtonCooldown(this.btnRoll, p.currentRollCooldown, p.rollCooldown, p.cost >= 1);
+    // 1. 구르기 버튼 쿨다운 (코스트 없음)
+    this.updateButtonCooldown(this.btnRoll, p.currentRollCooldown, p.rollCooldown);
 
-    // 2. 스킬 Q, E, RMB 쿨다운
-    const skQ = p.skillManager.skills.q;
-    const skE = p.skillManager.skills.e;
-    const skRmb = p.skillManager.skills.rmb;
+    // 2. 장착 스킬 Q 쿨다운 (코스트 없음)
+    const eqSkill = p.skillManager.getEquippedSkill();
+    this.updateButtonCooldown(this.btnQ, eqSkill.currentCooldown, eqSkill.cooldown);
 
-    this.updateButtonCooldown(this.btnQ, skQ.currentCooldown, skQ.cooldown, p.cost >= skQ.cost);
-    this.updateButtonCooldown(this.btnE, skE.currentCooldown, skE.cooldown, p.cost >= skE.cost);
-    this.updateButtonCooldown(this.btnRmb, skRmb.currentCooldown, skRmb.cooldown, p.cost >= skRmb.cost);
-
-    // 3. 차징 중이면 투척 버튼에 레트로 차징 게이지 반영
+    // 3. 차징 중이면 투척 버튼에 레트로 차징 게이지 반영 + 탄창 부족 표시
     if (this.btnThrow) {
+      this.btnThrow.classList.toggle('no-cost', p.ammo < 1 && !p.isCharging);
       const chargeFill = document.getElementById('throw-charge-fill');
       if (p.isCharging) {
         this.btnThrow.classList.add('charging');
@@ -549,7 +510,7 @@ class MobileControls {
     }
   }
 
-  updateButtonCooldown(btnElem, curCd, maxCd, hasCost) {
+  updateButtonCooldown(btnElem, curCd, maxCd) {
     if (!btnElem) return;
     const overlay = btnElem.querySelector('.m-cd-overlay');
     const text = btnElem.querySelector('.m-cd-text');
@@ -565,16 +526,10 @@ class MobileControls {
       }
     } else {
       btnElem.classList.remove('on-cooldown');
+      btnElem.classList.remove('no-cost');
+      btnElem.classList.add('ready');
       if (overlay) overlay.style.height = '0%';
       if (text) text.innerText = '';
-
-      if (hasCost) {
-        btnElem.classList.add('ready');
-        btnElem.classList.remove('no-cost');
-      } else {
-        btnElem.classList.remove('ready');
-        btnElem.classList.add('no-cost');
-      }
     }
   }
 }

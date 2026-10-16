@@ -1,4 +1,4 @@
-// player.js - 플레이어 캐릭터 클래스
+// player.js - 플레이어 캐릭터 클래스 (브롤스타즈 4칸 탄창 시스템 & 쿨타임 전용 스킬/구르기)
 class Player {
   constructor({ x = 400, y = 450, isPlayer = true, name = '플레이어' }) {
     this.x = x;
@@ -26,13 +26,14 @@ class Player {
     this.isDead = false;
     this.respawnTimer = 0;
 
-    // 코스트 시스템 (최대 10)
-    this.maxCost = 10;
-    this.cost = 5; // 시작 코스트 5
-    this.costRechargeRate = 0.75; // 초당 0.75 충전
+    // 브롤스타즈 스타일 눈덩이 탄창(애모) 시스템 (최대 4칸, 1칸당 1.0초 충전)
+    this.maxAmmo = 4;
+    this.ammo = 4;
+    this.ammoReloadRate = 1.0; // 초당 1칸 충전 (1칸당 1.0초 소요)
+    this.noAmmoToastTimer = 0;
 
-    // 구르기 (Shift)
-    this.rollCooldown = 2.0;
+    // 구르기 (Shift) - 코스트 없음, 오직 쿨타임만 존재
+    this.rollCooldown = 2.5;
     this.currentRollCooldown = 0;
     this.isRolling = false;
     this.rollTimer = 0;
@@ -83,7 +84,7 @@ class Player {
     this.joystickY = 0;
     this.hasJoystickInput = false;
 
-    // 스킬 매니저
+    // 스킬 매니저 (단일 장착 스킬 Q)
     this.skillManager = new SkillManager(this);
   }
 
@@ -128,12 +129,24 @@ class Player {
     }
   }
 
-  startCharging() {
-    if (this.isDead || this.isRolling) return;
+  startCharging(particles, sound) {
+    if (this.isDead || this.isRolling) return false;
+
+    // 눈덩이 탄창이 최소 1칸 이상 있어야 차징 및 투척 가능
+    if (this.ammo < 1) {
+      if (sound || window.sounds) (sound || window.sounds).playDeny();
+      if (particles && this.noAmmoToastTimer <= 0) {
+        particles.addFloatingText(this.x, this.y - 65, '장전 중!', '#fb923c', 16);
+        this.noAmmoToastTimer = 0.45;
+      }
+      return false;
+    }
+
     this.isCharging = true;
     this.chargeTimer = 0;
     this.chargeRatio = 0;
     this.playedFullChargeSound = false;
+    return true;
   }
 
   releaseCharge(snowballs, particles, sound) {
@@ -141,6 +154,13 @@ class Player {
     this.isCharging = false;
 
     if (this.isDead || this.isRolling) return null;
+    if (this.ammo < 1) {
+      this.chargeRatio = 0;
+      return null;
+    }
+
+    // 탄창 1칸 소모 (브롤스타즈처럼 소수점 장전 진행도는 그대로 유지!)
+    this.ammo = Math.max(0, this.ammo - 1);
 
     // 눈덩이 발사 (발사 원점 y - 20 기준 정확한 조준 벡터 계산)
     const spawnX = Math.round(this.x);
@@ -174,14 +194,12 @@ class Player {
 
   triggerRoll() {
     if (this.isRolling || this.isDead) return false;
-    // 쿨타임 및 코스트 확인
-    if (this.currentRollCooldown > 0 || this.cost < 1) {
+    // 오직 쿨타임만 확인 (코스트 없음)
+    if (this.currentRollCooldown > 0) {
       if (window.sounds) window.sounds.playDeny();
       return false;
     }
 
-    // 코스트 1 소모, 쿨다운 설정
-    this.cost -= 1;
     this.currentRollCooldown = this.rollCooldown;
 
     // 구르는 방향 결정: 조이스틱 또는 WASD 입력 방향 (없으면 조준/바라보는 방향)
@@ -263,7 +281,11 @@ class Player {
     this.hp = this.maxHp;
     this.isDead = false;
     this.respawnTimer = 0;
-    this.cost = 5;
+    this.ammo = this.maxAmmo;
+    this.currentRollCooldown = 0;
+    if (this.skillManager) {
+      this.skillManager.resetCooldowns();
+    }
     this.x = 350;
     this.y = 450;
     this.vx = 0;
@@ -284,9 +306,12 @@ class Player {
   }
 
   update(dt, particles, sound, allowRespawn = true) {
-    // 1. 코스트 회복
+    // 1. 브롤스타즈식 눈덩이 탄창 충전 (1칸당 1.0초, 최대 4칸)
     if (!this.isDead) {
-      this.cost = Math.min(this.maxCost, this.cost + this.costRechargeRate * dt);
+      this.ammo = Math.min(this.maxAmmo, this.ammo + this.ammoReloadRate * dt);
+    }
+    if (this.noAmmoToastTimer > 0) {
+      this.noAmmoToastTimer = Math.max(0, this.noAmmoToastTimer - dt);
     }
 
     // 2. 구르기 쿨다운 및 무적 유예 타이머
@@ -475,7 +500,7 @@ class Player {
     // 방벽 렌더링
     this.skillManager.drawBarriers(ctx);
 
-    // 머리 위 UI (HP 하트, 차징 바)
+    // 머리 위 UI (HP 하트, 브롤스타즈 4칸 탄창 바, 차징 바)
     this.drawOverheadUI(ctx);
   }
 
@@ -483,9 +508,9 @@ class Player {
     if (this.isDead) return;
 
     ctx.save();
-    const uiY = this.y - 120;
+    const uiY = this.y - 126;
 
-    // 닉네임
+    // 1. 닉네임
     ctx.font = 'bold 13px "PixelFont", monospace';
     ctx.textAlign = 'center';
     ctx.fillStyle = '#000000';
@@ -493,7 +518,7 @@ class Player {
     ctx.fillStyle = '#ffffff';
     ctx.fillText(this.name, this.x, uiY - 10);
 
-    // HP 하트 5개 표시
+    // 2. HP 하트 5개 표시
     const heartSpacing = 16;
     const startX = this.x - ((this.maxHp - 1) * heartSpacing) / 2;
     for (let i = 0; i < this.maxHp; i++) {
@@ -509,17 +534,50 @@ class Player {
       }
     }
 
-    // 차징 중일 때 머리 위 게이지 바
-    if (this.isCharging) {
-      const barW = 64;
-      const barH = 7;
-      const barX = this.x - barW / 2;
-      const barY = uiY + 16;
+    // 3. 브롤스타즈 스타일 4칸 탄창(애모) 바 (하트 바로 아래)
+    const totalAmmoW = 68;
+    const slotGap = 2;
+    const slotW = (totalAmmoW - slotGap * (this.maxAmmo - 1)) / this.maxAmmo;
+    const slotH = 6;
+    const ammoStartX = Math.round(this.x - totalAmmoW / 2);
+    const ammoY = Math.round(uiY + 13);
 
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    // 전체 탄창 배경 테두리
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.9)';
+    ctx.fillRect(ammoStartX - 2, ammoY - 2, totalAmmoW + 4, slotH + 4);
+
+    const fullSlots = Math.floor(this.ammo);
+    const partial = this.ammo - fullSlots;
+
+    for (let i = 0; i < this.maxAmmo; i++) {
+      const sx = ammoStartX + i * (slotW + slotGap);
+      // 빈 슬롯 바탕
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(sx, ammoY, slotW, slotH);
+
+      if (i < fullSlots) {
+        // 완충된 탄창 칸 (브롤스타즈 시그니처 오렌지-골드 도트 바)
+        ctx.fillStyle = '#fb923c';
+        ctx.fillRect(sx, ammoY, slotW, slotH);
+        ctx.fillStyle = '#fde047';
+        ctx.fillRect(sx, ammoY, slotW, 2);
+      } else if (i === fullSlots && partial > 0) {
+        // 재장전 중인 탄창 칸
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(sx, ammoY, slotW * partial, slotH);
+      }
+    }
+
+    // 4. 차징 중일 때 머리 위 차징 게이지 바
+    if (this.isCharging) {
+      const barW = 68;
+      const barH = 6;
+      const barX = Math.round(this.x - barW / 2);
+      const barY = ammoY + slotH + 4;
+
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
       ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
 
-      // 게이지 색상 (차오를수록 청록 -> 황금빛)
       const grad = ctx.createLinearGradient(barX, barY, barX + barW, barY);
       grad.addColorStop(0, '#38bdf8');
       grad.addColorStop(1, this.chargeRatio >= 1 ? '#facc15' : '#818cf8');
@@ -527,7 +585,6 @@ class Player {
       ctx.fillStyle = grad;
       ctx.fillRect(barX, barY, barW * this.chargeRatio, barH);
 
-      // 완충 시 빛나는 테두리
       if (this.chargeRatio >= 1) {
         ctx.strokeStyle = '#fef08a';
         ctx.lineWidth = 1.5;

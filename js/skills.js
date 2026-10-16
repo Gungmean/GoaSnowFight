@@ -1,16 +1,16 @@
-// skills.js - 스킬 시스템 및 방벽 객체
+// skills.js - 단일 선택 스킬 시스템 (코스트 없음, Q 슬롯 전용 쿨타임제) 및 방벽 객체
 class SkillManager {
   constructor(player) {
     this.player = player;
 
-    // 3가지 스킬 정의
+    // 선택 가능한 3가지 스킬 풀 (오직 1개만 선택하여 Q 키로 사용, 코스트 없음)
     this.skills = {
       q: {
         id: 'q',
         name: '눈보라 트리플',
-        desc: '전방 3방향으로 눈덩이를 연속 확산 발사합니다.',
-        cost: 2,
-        cooldown: 4.0,
+        shortName: '트리플샷',
+        desc: '전방 3방향 부채꼴로 눈덩이를 동시 발사합니다.',
+        cooldown: 5.0,
         currentCooldown: 0,
         icon: '❄️x3',
         keyLabel: 'Q'
@@ -18,26 +18,52 @@ class SkillManager {
       e: {
         id: 'e',
         name: '눈사람 빙벽',
-        desc: '전방에 상대 눈덩이를 막아주는 단단한 얼음 벽을 세웁니다.',
-        cost: 3,
-        cooldown: 7.0,
+        shortName: '눈사람벽',
+        desc: '전방에 상대 눈덩이를 막아주는 단단한 얼음 눈사람 벽을 세웁니다.',
+        cooldown: 8.0,
         currentCooldown: 0,
-        icon: '⛄벽',
-        keyLabel: 'E'
+        icon: '⛄',
+        keyLabel: 'Q'
       },
       rmb: {
         id: 'rmb',
         name: '메가 눈폭탄',
-        desc: '거대한 눈폭탄을 투척하여 명중 시 큰 폭발을 일으킵니다.',
-        cost: 4,
-        cooldown: 8.0,
+        shortName: '메가폭탄',
+        desc: '거대한 눈폭탄을 투척하여 명중 시 큰 폭발과 함께 2 피해를 입힙니다.',
+        cooldown: 9.0,
         currentCooldown: 0,
-        icon: '💣눈',
-        keyLabel: '우클릭'
+        icon: '💣',
+        keyLabel: 'Q'
       }
     };
 
+    // 현재 장착된 단일 스킬 ID ('q' | 'e' | 'rmb') - 로컬스토리지 연동
+    const saved = (typeof localStorage !== 'undefined') ? localStorage.getItem('snow_equipped_skill') : null;
+    this.equippedSkillId = (saved && this.skills[saved]) ? saved : 'q';
+
     this.activeBarriers = [];
+  }
+
+  // 장착 스킬 변경 (오직 1개만 장착)
+  setEquippedSkill(skillId) {
+    if (!this.skills[skillId]) return false;
+    this.equippedSkillId = skillId;
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('snow_equipped_skill', skillId);
+    }
+    return true;
+  }
+
+  // 현재 Q에 장착된 스킬 정보 반환
+  getEquippedSkill() {
+    return this.skills[this.equippedSkillId] || this.skills.q;
+  }
+
+  // 모든 쿨다운 초기화
+  resetCooldowns() {
+    for (const key in this.skills) {
+      this.skills[key].currentCooldown = 0;
+    }
   }
 
   update(dt, particles, sound) {
@@ -63,21 +89,36 @@ class SkillManager {
     }
   }
 
-  // Q 스킬 발동 (트리플 눈덩이)
+  // 현재 장착된 단일 스킬(Q) 발동! (반환값: { skillType, payload } 또는 false)
+  castEquippedSkill(targetX, targetY, snowballs, particles, sound) {
+    const id = this.equippedSkillId;
+    if (id === 'q') {
+      const payload = this.castQ(targetX, targetY, snowballs, particles, sound);
+      return payload ? { skillType: 'q', payload } : false;
+    } else if (id === 'e') {
+      const payload = this.castE(targetX, targetY, particles, sound);
+      return payload ? { skillType: 'e', payload } : false;
+    } else if (id === 'rmb') {
+      const payload = this.castRMB(targetX, targetY, snowballs, particles, sound);
+      return payload ? { skillType: 'rmb', payload } : false;
+    }
+    return false;
+  }
+
+  // 1. 눈보라 트리플 발동 (코스트 없음, 쿨타임만 체크)
   castQ(targetX, targetY, snowballs, particles, sound) {
     const sk = this.skills.q;
-    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead || this.player.isRolling) {
-      if (sound && (sk.currentCooldown > 0 || this.player.cost < sk.cost)) sound.playDeny();
+    if (sk.currentCooldown > 0 || this.player.isDead || this.player.isRolling) {
+      if (sound && sk.currentCooldown > 0) sound.playDeny();
       return false;
     }
 
-    this.player.cost -= sk.cost;
     sk.currentCooldown = sk.cooldown;
     this.player.isCharging = false;
     this.player.chargeRatio = 0;
 
     if (sound) sound.playSkillCast();
-    if (particles) particles.addFloatingText(this.player.x, this.player.y - 70, 'Q 스킬!', '#67e8f9');
+    if (particles) particles.addFloatingText(this.player.x, this.player.y - 70, '트리플 샷!', '#67e8f9');
 
     const spawnX = Math.round(this.player.x);
     const spawnY = Math.round(this.player.y - 20);
@@ -115,15 +156,14 @@ class SkillManager {
     };
   }
 
-  // E 스킬 발동 (눈사람 방벽 설치)
+  // 2. 눈사람 빙벽 발동 (코스트 없음, 쿨타임만 체크)
   castE(targetX, targetY, particles, sound) {
     const sk = this.skills.e;
-    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead || this.player.isRolling) {
-      if (sound && (sk.currentCooldown > 0 || this.player.cost < sk.cost)) sound.playDeny();
+    if (sk.currentCooldown > 0 || this.player.isDead || this.player.isRolling) {
+      if (sound && sk.currentCooldown > 0) sound.playDeny();
       return false;
     }
 
-    this.player.cost -= sk.cost;
     sk.currentCooldown = sk.cooldown;
     this.player.isCharging = false;
     this.player.chargeRatio = 0;
@@ -166,15 +206,14 @@ class SkillManager {
     };
   }
 
-  // 우클릭 스킬 발동 (메가 눈폭탄)
+  // 3. 메가 눈폭탄 발동 (코스트 없음, 쿨타임만 체크)
   castRMB(targetX, targetY, snowballs, particles, sound) {
     const sk = this.skills.rmb;
-    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead || this.player.isRolling) {
-      if (sound && (sk.currentCooldown > 0 || this.player.cost < sk.cost)) sound.playDeny();
+    if (sk.currentCooldown > 0 || this.player.isDead || this.player.isRolling) {
+      if (sound && sk.currentCooldown > 0) sound.playDeny();
       return false;
     }
 
-    this.player.cost -= sk.cost;
     sk.currentCooldown = sk.cooldown;
     this.player.isCharging = false;
     this.player.chargeRatio = 0;

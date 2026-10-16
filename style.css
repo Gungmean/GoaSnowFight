@@ -692,90 +692,67 @@ body.mobile-controls-active .cost-and-skills-wrapper {
   z-index: 4;
 }
 
-/* 클래시 로얄 스타일 코스트 바 */
-.clash-cost-container {
+/* 브롤스타즈 스타일 4칸 눈덩이 탄창(애모) 바 */
+.brawl-ammo-container {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: rgba(15, 23, 42, 0.92);
+  gap: 10px;
+  background: rgba(15, 23, 42, 0.94);
   border: 2px solid #334155;
-  border-radius: 24px;
-  padding: 4px 12px;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.6);
+  border-radius: 6px;
+  padding: 5px 12px;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.65);
 }
 
-.cost-icon-wrap {
+.ammo-icon-wrap {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
 }
 
-.cost-crystal {
-  font-size: 18px;
-  filter: drop-shadow(0 0 5px #c084fc);
+.ammo-snow-icon {
+  font-size: 16px;
+  filter: drop-shadow(0 0 4px #38bdf8);
 }
 
-.cost-val {
-  font-size: 17px;
+.ammo-count-val {
+  font-size: 14px;
   font-weight: bold;
-  color: #f0abfc;
-  min-width: 28px;
+  color: #fb923c;
+  min-width: 36px;
   text-shadow: 1px 1px 0 #000;
 }
 
-.cost-bar-outer {
-  position: relative;
-  width: 250px;
-  height: 20px;
-  background: #1e1b4b;
-  border: 2px solid #6b21a8;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
-}
-
-.cost-bar-inner {
-  position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  width: 50%;
-  background: linear-gradient(90deg, #9333ea 0%, #c084fc 70%, #f472b6 100%);
-  transition: width 0.08s ease-out;
-}
-
-.cost-bubble-glow {
-  position: absolute;
-  top: 0;
-  right: 0;
-  width: 12px;
-  height: 100%;
-  background: rgba(255, 255, 255, 0.6);
-  filter: blur(2px);
-}
-
-.cost-segments {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+.ammo-slots-row {
   display: flex;
-  justify-content: space-between;
-  padding: 0 10%;
-  pointer-events: none;
+  align-items: center;
+  gap: 5px;
 }
 
-.cost-segments span {
-  width: 2px;
+.ammo-slot-box {
+  position: relative;
+  width: 48px;
+  height: 14px;
+  background: #0f172a;
+  border: 2px solid #475569;
+  border-radius: 3px;
+  overflow: hidden;
+  box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.85);
+}
+
+.ammo-slot-fill {
   height: 100%;
-  background: rgba(0, 0, 0, 0.45);
+  width: 0%;
+  transition: width 0.05s linear;
 }
 
-.cost-max-label {
-  font-size: 13px;
-  color: #a855f7;
-  font-weight: bold;
+.ammo-slot-fill.full {
+  background: linear-gradient(180deg, #fde047 0%, #fb923c 45%, #ea580c 100%);
+  box-shadow: 0 0 6px rgba(251, 146, 60, 0.7);
+}
+
+.ammo-slot-fill.reloading {
+  background: linear-gradient(90deg, #0284c7 0%, #38bdf8 100%);
 }
 
 
@@ -967,7 +944,7 @@ body.mobile-controls-active .cost-and-skills-wrapper {
   color: #e2e8f0;
 }
 
-/* 스킬 덱 그리드 */
+/* 스킬 덱 그리드 (단일 스킬 선택) */
 .deck-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -976,17 +953,34 @@ body.mobile-controls-active .cost-and-skills-wrapper {
 
 .deck-card {
   background: #1e293b;
-  border: 3px solid #38bdf8;
+  border: 3px solid #334155;
   border-radius: 6px;
   padding: 14px;
   display: flex;
   flex-direction: column;
   gap: 6px;
+  transition: transform 0.12s ease, border-color 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+}
+
+.deck-card.selectable {
+  cursor: pointer;
+}
+
+.deck-card.selectable:hover {
+  transform: translateY(-2px);
+  border-color: #7dd3fc;
+  background: #24344d;
+}
+
+.deck-card.equipped {
+  border-color: #facc15;
+  background: #172554;
+  box-shadow: 0 0 14px rgba(250, 204, 21, 0.35);
 }
 
 .deck-card.locked {
   border-color: #475569;
-  opacity: 0.6;
+  opacity: 0.55;
 }
 
 .deck-key {
@@ -1007,7 +1001,8 @@ body.mobile-controls-active .cost-and-skills-wrapper {
 
 .deck-cost {
   font-size: 12px;
-  color: #c084fc;
+  color: #fb923c;
+  font-weight: bold;
 }
 
 .deck-desc {
@@ -1019,8 +1014,12 @@ body.mobile-controls-active .cost-and-skills-wrapper {
 .deck-status {
   margin-top: 4px;
   font-size: 11px;
-  color: #4ade80;
+  color: #94a3b8;
   font-weight: bold;
+}
+
+.deck-card.equipped .deck-status {
+  color: #facc15;
 }
 
 /* 매칭 모달 */
