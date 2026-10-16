@@ -135,14 +135,140 @@ document.addEventListener('DOMContentLoaded', async () => {
       showNicknameToast();
       if (window.sounds) window.sounds.playClick();
     }
+    fetchServerRecords();
     return true;
   }
 
-  // 초기 닉네임 바인딩
+  // ==========================================
+  // 웹 서버 저장 전적 & 랭킹 조회 시스템 (/api/records)
+  // ==========================================
+  const titleMyRecord = document.getElementById('title-my-record');
+  const modalRecords = document.getElementById('modal-records');
+  const btnOpenRecords = document.getElementById('btn-open-records');
+  const btnCloseRecords = document.getElementById('btn-close-records');
+  const btnRefreshRecords = document.getElementById('btn-refresh-records');
+
+  function refreshMyRecordUI(rec) {
+    if (!rec) return;
+    const wins = rec.wins || 0;
+    const losses = rec.losses || 0;
+    const total = rec.total || (wins + losses);
+    const winRate = typeof rec.winRate === 'number' ? rec.winRate : (total > 0 ? Math.round((wins / total) * 100) : 0);
+    const streak = rec.streak || 0;
+    const bestStreak = rec.bestStreak || 0;
+
+    if (titleMyRecord) {
+      const streakStr = streak >= 2 ? ` | 🔥 ${streak}연승 중!` : (bestStreak >= 2 ? ` | 최고 ${bestStreak}연승` : '');
+      titleMyRecord.innerText = `🏆 서버 전적: ${wins}승 ${losses}패 (승률 ${winRate}%)${streakStr}`;
+    }
+
+    const elName = document.getElementById('rec-my-name');
+    const elTotal = document.getElementById('rec-my-total');
+    const elWins = document.getElementById('rec-my-wins');
+    const elLosses = document.getElementById('rec-my-losses');
+    const elWinrate = document.getElementById('rec-my-winrate');
+    const elStreak = document.getElementById('rec-my-streak');
+
+    if (elName) elName.innerText = rec.name || getPlayerNickname();
+    if (elTotal) elTotal.innerText = `${total}전`;
+    if (elWins) elWins.innerText = `${wins}승`;
+    if (elLosses) elLosses.innerText = `${losses}패`;
+    if (elWinrate) elWinrate.innerText = `${winRate}%`;
+    if (elStreak) elStreak.innerText = `${streak}연승 (최고 ${bestStreak})`;
+  }
+  window.refreshMyRecordUI = refreshMyRecordUI;
+
+  function escapeHtml(str) {
+    return String(str || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  async function fetchServerRecords() {
+    const nick = getPlayerNickname();
+    try {
+      const res = await fetch(`/api/records?player=${encodeURIComponent(nick)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.myRecord) {
+        refreshMyRecordUI(data.myRecord);
+      }
+
+      const lbContainer = document.getElementById('records-leaderboard-list');
+      if (lbContainer && Array.isArray(data.leaderboard)) {
+        if (data.leaderboard.length === 0) {
+          lbContainer.innerHTML = '<div class="records-empty">아직 등록된 대전 기록이 없습니다. 1:1 매칭에서 첫 승리를 거둬보세요!</div>';
+        } else {
+          lbContainer.innerHTML = data.leaderboard.map((row, idx) => {
+            const rankMedal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}위`;
+            const isMe = row.name === nick;
+            return `
+              <div class="record-row ${isMe ? 'me' : ''}">
+                <span class="rec-rank">${rankMedal}</span>
+                <span class="rec-nick">${escapeHtml(row.name)}${isMe ? ' (나)' : ''}</span>
+                <span class="rec-score">${row.wins}승 ${row.losses}패 <small>(${row.winRate}%)</small></span>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      const recentContainer = document.getElementById('records-recent-list');
+      if (recentContainer && Array.isArray(data.recentMatches)) {
+        if (data.recentMatches.length === 0) {
+          recentContainer.innerHTML = '<div class="records-empty">최근 진행된 1:1 대전 기록이 없습니다.</div>';
+        } else {
+          recentContainer.innerHTML = data.recentMatches.slice(0, 15).map((m) => {
+            const d = new Date(m.timestamp || Date.now());
+            const timeStr = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+            return `
+              <div class="recent-match-item">
+                <div class="recent-match-main">
+                  <span class="winner-badge">WIN</span>
+                  <strong class="winner-name">${escapeHtml(m.winner)}</strong>
+                  <span class="vs-label">vs</span>
+                  <span class="loser-name">${escapeHtml(m.loser)}</span>
+                </div>
+                <div class="recent-match-meta">R${m.round || 1} · ${timeStr}</div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+    } catch (e) {
+      console.warn('[Records] 서버 전적 조회 실패:', e);
+    }
+  }
+  window.fetchServerRecords = fetchServerRecords;
+
+  // 초기 닉네임 바인딩 및 서버 전적 로드
   const curNickname = getPlayerNickname();
   if (inputNickname) inputNickname.value = curNickname;
   if (modalCurrentNick) modalCurrentNick.innerText = curNickname;
   if (playerNameLabel) playerNameLabel.innerText = `${curNickname} (1P)`;
+  fetchServerRecords();
+
+  if (btnOpenRecords) {
+    btnOpenRecords.addEventListener('click', () => {
+      if (window.sounds) window.sounds.playClick();
+      fetchServerRecords();
+      if (modalRecords) modalRecords.classList.remove('hidden');
+    });
+  }
+  if (btnCloseRecords) {
+    btnCloseRecords.addEventListener('click', () => {
+      if (window.sounds) window.sounds.playClick();
+      if (modalRecords) modalRecords.classList.add('hidden');
+    });
+  }
+  if (btnRefreshRecords) {
+    btnRefreshRecords.addEventListener('click', () => {
+      if (window.sounds) window.sounds.playClick();
+      fetchServerRecords();
+    });
+  }
 
   // 닉네임 저장 버튼
   if (btnSaveNickname) {
@@ -370,12 +496,32 @@ document.addEventListener('DOMContentLoaded', async () => {
     stopMatchSearchTimer();
     gameScreen.classList.add('hidden');
     titleScreen.classList.remove('hidden');
+    fetchServerRecords();
 
     // 타이틀로 돌아갈 때 전체화면 해제
     if (document.fullscreenElement) {
       document.exitFullscreen().catch(() => {});
     }
   });
+
+  // 8-1. 대전 종료 후 재대결 신청 & 로비 나가기 버튼
+  const btnRematch = document.getElementById('btn-rematch');
+  const btnResultLeave = document.getElementById('btn-result-leave');
+  if (btnRematch) {
+    btnRematch.addEventListener('click', () => {
+      if (btnRematch.disabled) return;
+      if (window.sounds) window.sounds.playClick();
+      btnRematch.disabled = true;
+      btnRematch.classList.add('accepted');
+      btnRematch.innerText = '✓ 수락 요청 전송 중...';
+      game.network.requestRematch();
+    });
+  }
+  if (btnResultLeave) {
+    btnResultLeave.addEventListener('click', () => {
+      btnBackToTitle.click();
+    });
+  }
 
   // 9. 사운드 토글
   btnSoundToggle.addEventListener('click', () => {

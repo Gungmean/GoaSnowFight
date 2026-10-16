@@ -18,6 +18,8 @@ class NetworkManager {
     this.onOpponentDodge = null;
     this.onOpponentBarrierHit = null;
     this.onOpponentLeft = null;
+    this.onMatchOverStats = null;
+    this.onRematchStatus = null;
     this.onRoomCreated = null;
     this.onQueueWaiting = null;
     this.onError = null;
@@ -114,6 +116,12 @@ class NetworkManager {
           this.onMatchStart({
             roomId: msg.roomId,
             role: msg.role,
+            round: msg.round || 1,
+            isRematch: !!msg.isRematch,
+            myWins: msg.myWins || 0,
+            oppWins: msg.oppWins || 0,
+            myRecord: msg.myRecord || null,
+            oppRecord: msg.oppRecord || null,
             opponentName: this.opponentName,
             countdownSec: msg.countdownSec || 3
           });
@@ -152,6 +160,14 @@ class NetworkManager {
         if (this.onOpponentBarrierHit) this.onOpponentBarrierHit(msg);
         break;
 
+      case 'MATCH_OVER_STATS':
+        if (this.onMatchOverStats) this.onMatchOverStats(msg);
+        break;
+
+      case 'REMATCH_STATUS':
+        if (this.onRematchStatus) this.onRematchStatus(msg);
+        break;
+
       case 'OPPONENT_LEFT':
         if (this.onOpponentLeft) this.onOpponentLeft(msg.message);
         break;
@@ -187,6 +203,23 @@ class NetworkManager {
     this.send({ type: 'MATCH_EXIT' });
     this.currentRoomId = null;
     this.myRole = null;
+  }
+
+  // 경기 승패 결과 서버 보고 (전적 저장 트리거)
+  reportMatchResult(result) {
+    if (!this.currentRoomId) return;
+    this.send({
+      type: 'REPORT_MATCH_RESULT',
+      result
+    });
+  }
+
+  // 상호 수락형 재대결 요청
+  requestRematch() {
+    if (!this.currentRoomId) return;
+    this.send({
+      type: 'REMATCH_REQUEST'
+    });
   }
 
   // 실시간 내 상태 전송 (서버에서 X축 미러링되어 상대에게 전달됨)

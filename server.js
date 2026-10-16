@@ -6,6 +6,171 @@ const WebSocket = require('ws');
 const PORT = process.env.PORT || 3000;
 const VIRTUAL_WIDTH = 1672;
 
+// =========================================================================
+// 0. 웹 서버 전적 저장소 (data/records.json 영구 보존 + 메모리 캐시)
+// =========================================================================
+const DATA_DIR = path.join(__dirname, 'data');
+const RECORDS_FILE = path.join(DATA_DIR, 'records.json');
+
+let recordsDB = {
+  players: {},       // { [nickname]: { name, wins, losses, streak, bestStreak, updatedAt } }
+  recentMatches: []  // [ { winner, loser, mode, timestamp } ]
+};
+
+function loadRecordsDB() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    if (fs.existsSync(RECORDS_FILE)) {
+      const raw = fs.readFileSync(RECORDS_FILE, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        recordsDB.players = parsed.players || {};
+        recordsDB.recentMatches = Array.isArray(parsed.recentMatches) ? parsed.recentMatches : [];
+      }
+    }
+  } catch (err) {
+    console.error('[RECORDS] Failed to load records.json:', err.message);
+  }
+}
+
+function saveRecordsDB() {
+  try {
+    if (!fs.existsSync(DATA_DIR)) {
+      fs.mkdirSync(DATA_DIR, { recursive: true });
+    }
+    fs.writeFile(RECORDS_FILE, JSON.stringify(recordsDB, null, 2), 'utf8', (err) => {
+      if (err) console.error('[RECORDS] Failed to write records.json:', err.message);
+    });
+  } catch (err) {
+    console.error('[RECORDS] Save error:', err.message);
+  }
+}
+
+function getOrCreatePlayerRecord(name) {
+  const cleanName = (name || '눈싸움고수').trim().slice(0, 10) || '눈싸움고수';
+  if (!recordsDB.players[cleanName]) {
+    recordsDB.players[cleanName] = {
+      name: cleanName,
+      wins: 0,
+      losses: 0,
+      streak: 0,
+      bestStreak: 0,
+      updatedAt: Date.now()
+    };
+  }
+  return formatPlayerRecord(recordsDB.players[cleanName]);
+}
+
+function formatPlayerRecord(rec) {
+  const wins = rec.wins || 0;
+  const losses = rec.losses || 0;
+  const total = wins + losses;
+  const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
+  return {
+    name: rec.name,
+    wins,
+    losses,
+    total,
+    winRate,
+    streak: rec.streak || 0,
+    bestStreak: rec.bestStreak || 0,
+    updatedAt: rec.updatedAt || 0
+  };
+}
+
+function getLeaderboard(limit = 20) {
+  const list = Object.values(recordsDB.players)
+    .map(formatPlayerRecord)
+    .filter(r => r.total > 0);
+
+  list.sort((a, b) => {
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    if (b.winRate !== a.winRate) return b.winRate - a.winRate;
+    return b.total - a.total;
+  });
+
+  return list.slice(0, limit);
+}
+
+function recordMatchOutcome(room, winnerRole) {
+  if (!room || room.roundFinished) return null;
+  room.roundFinished = true;
+
+  const isP1Winner = winnerRole === 'p1';
+  const winnerObj = isP1Winner ? room.p1 : room.p2;
+  const loserObj = isP1Winner ? room.p2 : room.p1;
+
+  if (isP1Winner) {
+    room.p1Wins = (room.p1Wins || 0) + 1;
+  } else {
+    room.p2Wins = (room.p2Wins || 0) + 1;
+  }
+
+  const wName = (winnerObj.name || '1P').trim().slice(0, 10);
+  const lName = (loserObj.name || '2P').trim().slice(0, 10);
+
+  getOrCreatePlayerRecord(wName);
+  getOrCreatePlayerRecord(lName);
+
+  const wRec = recordsDB.players[wName];
+  const lRec = recordsDB.players[lName];
+
+  wRec.wins += 1;
+  wRec.streak = (wRec.streak || 0) + 1;
+  if (wRec.streak > (wRec.bestStreak || 0)) {
+    wRec.bestStreak = wRec.streak;
+  }
+  wRec.updatedAt = Date.now();
+
+  lRec.losses += 1;
+  lRec.streak = 0;
+  lRec.updatedAt = Date.now();
+
+  recordsDB.recentMatches.unshift({
+    winner: wName,
+    loser: lName,
+    mode: room.mode || 'quick',
+    round: room.round || 1,
+    timestamp: Date.now()
+  });
+  if (recordsDB.recentMatches.length > 30) {
+    recordsDB.recentMatches.length = 30;
+  }
+
+  saveRecordsDB();
+
+  const p1Record = formatPlayerRecord(recordsDB.players[room.p1.name]);
+  const p2Record = formatPlayerRecord(recordsDB.players[room.p2.name]);
+
+  // 양쪽 플레이어에게 확정된 전적 및 세트 스코어 전송
+  sendJson(room.p1.ws, {
+    type: 'MATCH_OVER_STATS',
+    winnerRole,
+    round: room.round,
+    myWins: room.p1Wins,
+    oppWins: room.p2Wins,
+    myRecord: p1Record,
+    oppRecord: p2Record
+  });
+
+  sendJson(room.p2.ws, {
+    type: 'MATCH_OVER_STATS',
+    winnerRole,
+    round: room.round,
+    myWins: room.p2Wins,
+    oppWins: room.p1Wins,
+    myRecord: p2Record,
+    oppRecord: p1Record
+  });
+
+  console.log(`[RECORD SAVED] ${wName} defeated ${lName} (Round ${room.round}, Score ${room.p1Wins}:${room.p2Wins})`);
+  return { p1Record, p2Record };
+}
+
+loadRecordsDB();
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -19,9 +184,28 @@ const MIME_TYPES = {
   '.mp3': 'audio/mpeg'
 };
 
-// 1. Static HTTP Server
+// 1. Static HTTP Server + REST API (/api/records)
 const server = http.createServer((req, res) => {
-  let reqUrl = decodeURI(req.url.split('?')[0]);
+  const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+  let reqUrl = decodeURI(parsedUrl.pathname);
+
+  // 전적 및 랭킹 조회 API
+  if (reqUrl === '/api/records' && req.method === 'GET') {
+    const playerName = (parsedUrl.searchParams.get('player') || '').trim().slice(0, 10);
+    const myRecord = playerName ? getOrCreatePlayerRecord(playerName) : null;
+    const payload = {
+      myRecord,
+      leaderboard: getLeaderboard(20),
+      recentMatches: recordsDB.recentMatches.slice(0, 15)
+    };
+    res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store, no-cache, must-revalidate'
+    });
+    res.end(JSON.stringify(payload));
+    return;
+  }
+
   if (reqUrl === '/') reqUrl = '/index.html';
 
   const filePath = path.join(__dirname, reqUrl);
@@ -59,7 +243,7 @@ const wss = new WebSocket.Server({ server, perMessageDeflate: false });
 
 let matchQueue = []; // Quick match waiting queue: [ { ws, playerName, id } ]
 const privateRooms = new Map(); // roomCode (string) -> { host: { ws, playerName }, guest: null, id }
-const activeRooms = new Map(); // roomId (string) -> { p1: { ws, ... }, p2: { ws, ... } }
+const activeRooms = new Map(); // roomId (string) -> { p1, p2, round, roundFinished, p1Wins, p2Wins, rematchVotes }
 
 let nextPlayerId = 1;
 
@@ -107,11 +291,23 @@ function sendJson(ws, obj) {
 }
 
 function startMatch(p1, p2, roomId, mode) {
+  const p1Name = (p1.playerName || '1P').trim().slice(0, 10) || '1P';
+  const p2Name = (p2.playerName || '2P').trim().slice(0, 10) || '2P';
+
+  const p1Record = getOrCreatePlayerRecord(p1Name);
+  const p2Record = getOrCreatePlayerRecord(p2Name);
+
   const room = {
     id: roomId,
     mode,
-    p1: { ws: p1.ws, name: p1.playerName, hp: 5 },
-    p2: { ws: p2.ws, name: p2.playerName, hp: 5 }
+    round: 1,
+    roundStartedAt: Date.now(),
+    roundFinished: false,
+    p1Wins: 0,
+    p2Wins: 0,
+    rematchVotes: new Set(),
+    p1: { ws: p1.ws, name: p1Name, hp: 5 },
+    p2: { ws: p2.ws, name: p2Name, hp: 5 }
   };
   activeRooms.set(roomId, room);
 
@@ -125,24 +321,82 @@ function startMatch(p1, p2, roomId, mode) {
     type: 'MATCH_START',
     roomId,
     role: 'p1',
-    opponentName: p2.playerName,
+    round: 1,
+    isRematch: false,
+    myWins: 0,
+    oppWins: 0,
+    myRecord: p1Record,
+    oppRecord: p2Record,
+    opponentName: p2Name,
     myHp: 5,
     opponentHp: 5,
     countdownSec: 3
   });
 
-  // Player 2에게 매칭 시작 전송 (철권식 미러링에 의해 p2 본인도 왼쪽 1P 관점으로 플레이)
+  // Player 2에게 매칭 시작 전송
   sendJson(p2.ws, {
     type: 'MATCH_START',
     roomId,
     role: 'p2',
-    opponentName: p1.playerName,
+    round: 1,
+    isRematch: false,
+    myWins: 0,
+    oppWins: 0,
+    myRecord: p2Record,
+    oppRecord: p1Record,
+    opponentName: p1Name,
     myHp: 5,
     opponentHp: 5,
     countdownSec: 3
   });
 
-  console.log(`[MATCH STARTED] Room ${roomId}: ${p1.playerName} vs ${p2.playerName}`);
+  console.log(`[MATCH STARTED] Room ${roomId}: ${p1Name} vs ${p2Name}`);
+}
+
+function startRematch(room) {
+  room.round += 1;
+  room.roundStartedAt = Date.now();
+  room.roundFinished = false;
+  room.rematchVotes.clear();
+  room.p1.hp = 5;
+  room.p2.hp = 5;
+
+  const p1Record = getOrCreatePlayerRecord(room.p1.name);
+  const p2Record = getOrCreatePlayerRecord(room.p2.name);
+
+  sendJson(room.p1.ws, {
+    type: 'MATCH_START',
+    roomId: room.id,
+    role: 'p1',
+    round: room.round,
+    isRematch: true,
+    myWins: room.p1Wins,
+    oppWins: room.p2Wins,
+    myRecord: p1Record,
+    oppRecord: p2Record,
+    opponentName: room.p2.name,
+    myHp: 5,
+    opponentHp: 5,
+    countdownSec: 3
+  });
+
+  sendJson(room.p2.ws, {
+    type: 'MATCH_START',
+    roomId: room.id,
+    role: 'p2',
+    round: room.round,
+    isRematch: true,
+    myWins: room.p2Wins,
+    oppWins: room.p1Wins,
+    myRecord: p2Record,
+    oppRecord: p1Record,
+    opponentName: room.p1.name,
+    myHp: 5,
+    opponentHp: 5,
+    countdownSec: 3
+  });
+
+  console.log(`[REMATCH STARTED] Room ${room.id} (Round ${room.round}): ${room.p1.name} vs ${room.p2.name}`);
 }
 
 function handleDisconnect(ws) {
@@ -163,16 +417,24 @@ function handleDisconnect(ws) {
   // 3. 진행 중인 방에서 상대에게 접속 종료 알림
   if (ws.currentRoomId && activeRooms.has(ws.currentRoomId)) {
     const room = activeRooms.get(ws.currentRoomId);
+    const opponentRole = ws.playerRole === 'p1' ? 'p2' : 'p1';
     const opponent = ws.playerRole === 'p1' ? room.p2 : room.p1;
+
+    // 카운트다운(3초) 이후 실제 교전 중에 중도 퇴장했다면 남은 사람 승리 기록!
+    if (!room.roundFinished && (Date.now() - (room.roundStartedAt || 0) > 3500)) {
+      recordMatchOutcome(room, opponentRole);
+    }
+
     if (opponent && opponent.ws) {
       sendJson(opponent.ws, {
         type: 'OPPONENT_LEFT',
-        message: '상대방이 게임을 나갔습니다. 승리!'
+        message: '상대방이 방을 나갔습니다.'
       });
       opponent.ws.currentRoomId = null;
     }
     activeRooms.delete(ws.currentRoomId);
-    console.log(`[ROOM ENDED] Room ${ws.currentRoomId} (player disconnected)`);
+    console.log(`[ROOM ENDED] Room ${ws.currentRoomId} (player exited/disconnected)`);
+    ws.currentRoomId = null;
   }
 }
 
@@ -206,16 +468,13 @@ wss.on('connection', (ws) => {
       // 1. 빠른 매칭 요청
       case 'JOIN_QUEUE': {
         const playerName = (msg.playerName || '눈싸움고수').trim().slice(0, 10);
-        // 이미 큐에 있으면 중복 제거
         matchQueue = matchQueue.filter(item => item.ws !== ws);
 
         if (matchQueue.length > 0) {
-          // 대기자 존재 -> 즉시 매칭!
           const opponent = matchQueue.shift();
           const roomId = 'room_quick_' + Date.now();
           startMatch(opponent, { ws, playerName, id: ws.id }, roomId, 'quick');
         } else {
-          // 큐에 대기 등록
           matchQueue.push({ ws, playerName, id: ws.id });
           sendJson(ws, { type: 'QUEUE_WAITING' });
           console.log(`[QUEUE] ${playerName} (${ws.id}) waiting in queue (Total: ${matchQueue.length})`);
@@ -266,7 +525,6 @@ wss.on('connection', (ws) => {
           return;
         }
 
-        // 방 성립!
         privateRooms.delete(code);
         const roomId = 'room_code_' + code;
         startMatch(roomData.host, { ws, playerName, id: ws.id }, roomId, 'code');
@@ -283,7 +541,6 @@ wss.on('connection', (ws) => {
       }
 
       // 6. 인게임 상태 패킷 중계 (위치, 투사체, 스킬, 구르기, 피격/회피 등)
-      //    핵심: 송신자가 보낸 좌표를 상대방에게는 철권식 시점 미러링(좌우 반전)하여 전달!
       case 'SYNC_STATE':
       case 'SYNC_ROLL':
       case 'SYNC_THROW':
@@ -298,14 +555,72 @@ wss.on('connection', (ws) => {
         const opponent = ws.playerRole === 'p1' ? room.p2 : room.p1;
 
         if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {
-          // 상대방에게 보낼 패킷은 X축을 거울 대칭 반전
           const mirrored = mirrorPacketForOpponent(msg);
           sendJson(opponent.ws, mirrored);
         }
         break;
       }
 
-      // 7. 게임 종료 / 항복 / 리스폰
+      // 7. 경기 승패 결과 보고 -> 서버 전적 기록 (라운드당 1회만 기록)
+      case 'REPORT_MATCH_RESULT': {
+        if (!ws.currentRoomId || !activeRooms.has(ws.currentRoomId)) return;
+        const room = activeRooms.get(ws.currentRoomId);
+        if (room.roundFinished) return;
+
+        let winnerRole = null;
+        if (msg.result === 'VICTORY') {
+          winnerRole = ws.playerRole;
+        } else if (msg.result === 'DEFEAT') {
+          winnerRole = ws.playerRole === 'p1' ? 'p2' : 'p1';
+        }
+        if (winnerRole) {
+          recordMatchOutcome(room, winnerRole);
+        }
+        break;
+      }
+
+      // 8. 상호 수락형 재대결 요청 (REMATCH_REQUEST)
+      case 'REMATCH_REQUEST': {
+        if (!ws.currentRoomId || !activeRooms.has(ws.currentRoomId)) return;
+        const room = activeRooms.get(ws.currentRoomId);
+        const myRole = ws.playerRole;
+        if (!myRole) return;
+
+        room.rematchVotes.add(myRole);
+
+        // 양쪽 모두 수락했으면 즉시 재대결 시작!
+        if (room.rematchVotes.has('p1') && room.rematchVotes.has('p2')) {
+          startRematch(room);
+        } else {
+          // 아직 1명만 신청한 상태 -> 양쪽에 수락 현황 브로드캐스트
+          const requesterName = room.rematchVotes.has('p1') ? room.p1.name : room.p2.name;
+          sendJson(room.p1.ws, {
+            type: 'REMATCH_STATUS',
+            votes: room.rematchVotes.size,
+            acceptedCount: room.rematchVotes.size,
+            totalNeeded: 2,
+            myVoted: room.rematchVotes.has('p1'),
+            iAccepted: room.rematchVotes.has('p1'),
+            oppVoted: room.rematchVotes.has('p2'),
+            oppAccepted: room.rematchVotes.has('p2'),
+            requesterName
+          });
+          sendJson(room.p2.ws, {
+            type: 'REMATCH_STATUS',
+            votes: room.rematchVotes.size,
+            acceptedCount: room.rematchVotes.size,
+            totalNeeded: 2,
+            myVoted: room.rematchVotes.has('p2'),
+            iAccepted: room.rematchVotes.has('p2'),
+            oppVoted: room.rematchVotes.has('p1'),
+            oppAccepted: room.rematchVotes.has('p1'),
+            requesterName
+          });
+        }
+        break;
+      }
+
+      // 9. 게임 종료 / 방 나가기
       case 'MATCH_EXIT': {
         handleDisconnect(ws);
         break;

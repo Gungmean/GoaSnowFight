@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>고아 눈싸움 - 1:1 도트 눈싸움 액션</title>
-  <link rel="stylesheet" href="style.css?v=20261016_3">
+  <link rel="stylesheet" href="style.css?v=20261016_4">
 </head>
 <body>
   <div id="game-container">
@@ -29,6 +29,7 @@
             <button type="button" id="btn-dice-nickname" class="nick-btn-dice" title="랜덤 닉네임 뽑기">🎲</button>
             <button type="button" id="btn-save-nickname" class="nick-btn-save" title="닉네임 저장">저장</button>
           </div>
+          <div id="title-my-record" class="title-record-badge">🏆 내 전적: 0승 0패 (승률 0%)</div>
           <div id="nickname-save-toast" class="nickname-toast hidden">✓ 닉네임이 저장되었습니다!</div>
         </div>
 
@@ -39,6 +40,9 @@
           </button>
           <button id="btn-skill-deck" class="pixel-btn secondary-btn">
             <span class="btn-icon">⚡</span> 스킬 편성
+          </button>
+          <button id="btn-open-records" class="pixel-btn record-menu-btn">
+            <span class="btn-icon">🏆</span> 전적 & 랭킹
           </button>
         </div>
 
@@ -66,6 +70,30 @@
         <div id="match-countdown-overlay" class="hidden">
           <div id="countdown-title" class="countdown-title">1:1 눈싸움 대전 매칭 완료!</div>
           <div id="countdown-number" class="countdown-number">3</div>
+        </div>
+
+        <!-- 멀티플레이 승패 결과 & 상호 수락 재대결 오버레이 -->
+        <div id="match-result-overlay" class="match-result-overlay hidden">
+          <div id="match-result-card" class="match-result-card">
+            <div id="result-banner-title" class="result-banner-title">🏆 VICTORY 🏆</div>
+            <div id="result-banner-desc" class="result-banner-desc">상대를 쓰러뜨리고 눈싸움에서 승리했습니다!</div>
+
+            <div class="result-stats-box">
+              <div id="result-set-score" class="result-set-score">현재 상대와의 세트 스코어: 나 1 : 0 상대</div>
+              <div id="result-total-record" class="result-total-record">내 서버 통산 전적: 1승 0패 (승률 100%)</div>
+            </div>
+
+            <div id="rematch-status-text" class="rematch-status-text">상대방과 재대결하시겠습니까? (양쪽 수락 시 즉시 시작)</div>
+
+            <div class="result-action-buttons">
+              <button type="button" id="btn-rematch" class="pixel-btn primary-btn result-btn">
+                🔄 재대결 신청 (0/2)
+              </button>
+              <button type="button" id="btn-result-leave" class="pixel-btn secondary-btn result-btn leave-btn">
+                🚪 로비로 나가기
+              </button>
+            </div>
+          </div>
         </div>
 
         <!-- 모바일 전용 가상 조이스틱 & 액션 패드 (레트로 도트 스타일) -->
@@ -378,20 +406,80 @@
         </div>
       </div>
     </div>
+    <!-- ==============================================
+         7. 모달: 웹 서버 전적 기록실 & 랭킹 리더보드
+         ============================================== -->
+    <div id="modal-records" class="modal-backdrop hidden">
+      <div class="pixel-modal records-modal">
+        <div class="modal-header">
+          <h2>🏆 서버 전적 기록실 & 랭킹</h2>
+          <div class="header-right-btns">
+            <button type="button" id="btn-refresh-records" class="hud-mini-btn" title="서버 전적 새로고침">🔄 새로고침</button>
+            <button id="btn-close-records" class="close-btn">&times;</button>
+          </div>
+        </div>
+        <div class="modal-body records-body">
+          <!-- 내 전적 요약 카드 -->
+          <div class="my-record-summary-card">
+            <div class="my-rec-title">🏷️ <span id="rec-my-name">눈싸움고수</span> 님의 서버 전적</div>
+            <div class="my-rec-stats-grid">
+              <div class="rec-stat-item">
+                <span class="rec-stat-label">총 대전</span>
+                <span id="rec-my-total" class="rec-stat-val">0전</span>
+              </div>
+              <div class="rec-stat-item">
+                <span class="rec-stat-label">승리</span>
+                <span id="rec-my-wins" class="rec-stat-val win-text">0승</span>
+              </div>
+              <div class="rec-stat-item">
+                <span class="rec-stat-label">패배</span>
+                <span id="rec-my-losses" class="rec-stat-val loss-text">0패</span>
+              </div>
+              <div class="rec-stat-item">
+                <span class="rec-stat-label">승률</span>
+                <span id="rec-my-winrate" class="rec-stat-val highlight-text">0%</span>
+              </div>
+              <div class="rec-stat-item">
+                <span class="rec-stat-label">최고 연승</span>
+                <span id="rec-my-streak" class="rec-stat-val streak-text">0연승</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="records-columns">
+            <!-- 좌측: 다승 랭킹 TOP 리더보드 -->
+            <div class="records-panel">
+              <h3 class="records-panel-title">👑 명예의 전당 (다승 랭킹)</h3>
+              <div id="records-leaderboard-list" class="records-list">
+                <div class="records-empty">데이터를 불러오는 중...</div>
+              </div>
+            </div>
+
+            <!-- 우측: 최근 실시간 대전 로그 -->
+            <div class="records-panel">
+              <h3 class="records-panel-title">⚔️ 최근 서버 대전 기록</h3>
+              <div id="records-recent-list" class="records-list">
+                <div class="records-empty">데이터를 불러오는 중...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <!-- 스크립트 로드 순서 (캐시 방지 v=20261016_3 적용) -->
-  <script src="js/sound.js?v=20261016_3"></script>
-  <script src="js/particles.js?v=20261016_3"></script>
-  <script src="js/sprites.js?v=20261016_3"></script>
-  <script src="js/snowball.js?v=20261016_3"></script>
-  <script src="js/skills.js?v=20261016_3"></script>
-  <script src="js/player.js?v=20261016_3"></script>
-  <script src="js/remotePlayer.js?v=20261016_3"></script>
-  <script src="js/bot.js?v=20261016_3"></script>
-  <script src="js/network.js?v=20261016_3"></script>
-  <script src="js/mobileControls.js?v=20261016_3"></script>
-  <script src="js/game.js?v=20261016_3"></script>
-  <script src="js/main.js?v=20261016_3"></script>
+  <!-- 스크립트 로드 순서 (캐시 방지 v=20261016_4 적용) -->
+  <script src="js/sound.js?v=20261016_4"></script>
+  <script src="js/particles.js?v=20261016_4"></script>
+  <script src="js/sprites.js?v=20261016_4"></script>
+  <script src="js/snowball.js?v=20261016_4"></script>
+  <script src="js/skills.js?v=20261016_4"></script>
+  <script src="js/player.js?v=20261016_4"></script>
+  <script src="js/remotePlayer.js?v=20261016_4"></script>
+  <script src="js/bot.js?v=20261016_4"></script>
+  <script src="js/network.js?v=20261016_4"></script>
+  <script src="js/mobileControls.js?v=20261016_4"></script>
+  <script src="js/game.js?v=20261016_4"></script>
+  <script src="js/main.js?v=20261016_4"></script>
 </body>
 </html>

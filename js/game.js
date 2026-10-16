@@ -74,8 +74,8 @@ class Game {
   }
 
   bindNetworkEvents() {
-    this.network.onMatchStart = ({ role, opponentName, countdownSec }) => {
-      console.log(`[GAME] 1:1 대전 시작! 내 역할: ${role}, 상대: ${opponentName}`);
+    this.network.onMatchStart = ({ role, opponentName, countdownSec, round, isRematch, myWins, oppWins, myRecord }) => {
+      console.log(`[GAME] 1:1 대전 시작! (Round ${round || 1}) 내 역할: ${role}, 상대: ${opponentName}`);
       this.mode = 'MULTIPLAYER';
       this.opponent = new RemotePlayer({ x: 1250, y: 460, name: opponentName });
       this.player.respawn(null, null);
@@ -94,6 +94,24 @@ class Game {
       this.player.skillManager.activeBarriers = [];
       this.matchResult = null;
       this.matchCountdown = countdownSec || 3;
+
+      if (myRecord && typeof window.refreshMyRecordUI === 'function') {
+        window.refreshMyRecordUI(myRecord);
+      }
+
+      // 결과/재대결 오버레이 숨기기 및 버튼 초기화
+      const resultOverlay = document.getElementById('match-result-overlay');
+      if (resultOverlay) resultOverlay.classList.add('hidden');
+      const btnRematch = document.getElementById('btn-rematch');
+      if (btnRematch) {
+        btnRematch.disabled = false;
+        btnRematch.classList.remove('accepted');
+        btnRematch.innerText = '🔄 재대결 신청 (0/2)';
+      }
+      const rematchStatus = document.getElementById('rematch-status-text');
+      if (rematchStatus) {
+        rematchStatus.innerText = '상대방과 재대결하려면 아래 버튼을 누르세요!';
+      }
 
       // 훈련장 전용 UI 숨기기
       const botLabel = document.getElementById('bot-name-label');
@@ -122,7 +140,13 @@ class Game {
       const overlay = document.getElementById('match-countdown-overlay');
       const countNum = document.getElementById('countdown-number');
       const countTitle = document.getElementById('countdown-title');
-      if (countTitle) countTitle.innerText = `1:1 눈싸움 매칭 완료! (${opponentName} vs ${myCustomNick})`;
+      if (countTitle) {
+        if (isRematch) {
+          countTitle.innerText = `🔥 ROUND ${round || 2} 재대결 시작! (나 ${myWins || 0} : ${oppWins || 0} ${opponentName})`;
+        } else {
+          countTitle.innerText = `1:1 눈싸움 매칭 완료! (${myCustomNick} vs ${opponentName})`;
+        }
+      }
       if (countNum) countNum.innerText = String(this.matchCountdown);
       if (overlay) overlay.classList.remove('hidden');
 
@@ -131,7 +155,9 @@ class Game {
       }
 
       this.resize();
-      this.start();
+      if (!this.isRunning) {
+        this.start();
+      }
       if (this.sound) this.sound.playChargeFull();
     };
 
@@ -332,10 +358,121 @@ class Game {
       }
     };
 
-    this.network.onOpponentLeft = (message) => {
-      this.particles.addFloatingText(this.centerLineX, 400, '상대방이 나갔습니다. 승리!', '#facc15', 30);
-      this.matchResult = 'VICTORY';
+    // 서버로부터 경기 종료 후 확정 전적 & 세트 스코어 수신
+    this.network.onMatchOverStats = (msg) => {
+      const setScoreEl = document.getElementById('result-set-score');
+      if (setScoreEl && typeof msg.myWins === 'number' && typeof msg.oppWins === 'number') {
+        const oppName = this.opponent ? this.opponent.name : '상대';
+        setScoreEl.innerText = `나 ${msg.myWins} : ${msg.oppWins} ${oppName} (R${msg.round || 1})`;
+      }
+      if (msg.myRecord) {
+        const r = msg.myRecord;
+        const totalEl = document.getElementById('result-total-record');
+        if (totalEl) {
+          totalEl.innerText = `${r.wins}승 ${r.losses}패 (승률 ${r.winRate}%)`;
+        }
+        if (typeof window.refreshMyRecordUI === 'function') {
+          window.refreshMyRecordUI(r);
+        }
+      }
     };
+
+    // 상대방 또는 나의 재대결 신청 상태 수신 (1/2 또는 2/2)
+    this.network.onRematchStatus = (msg) => {
+      const statusEl = document.getElementById('rematch-status-text');
+      const btnRematch = document.getElementById('btn-rematch');
+      const count = msg.acceptedCount || 0;
+      const total = msg.totalNeeded || 2;
+
+      if (btnRematch) {
+        if (msg.iAccepted) {
+          btnRematch.disabled = true;
+          btnRematch.classList.add('accepted');
+          btnRematch.innerText = `✓ 수락 완료 (${count}/${total})`;
+        } else {
+          btnRematch.disabled = false;
+          btnRematch.classList.remove('accepted');
+          btnRematch.innerText = `🔄 재대결 수락하기 (${count}/${total})`;
+        }
+      }
+      if (statusEl) {
+        if (msg.iAccepted && !msg.oppAccepted) {
+          statusEl.innerText = '⏳ 상대방의 재대결 수락을 기다리는 중입니다...';
+        } else if (!msg.iAccepted && msg.oppAccepted) {
+          statusEl.innerText = `🔔 ${msg.requesterName || '상대방'}님이 재대결을 요청했습니다! 수락하면 즉시 시작됩니다.`;
+        } else if (count >= total) {
+          statusEl.innerText = '🔥 양측 모두 수락! 곧 다음 라운드가 시작됩니다!';
+        }
+      }
+      if (this.sound) this.sound.playClick();
+    };
+
+    this.network.onOpponentLeft = (message) => {
+      if (!this.matchResult) {
+        this.particles.addFloatingText(this.centerLineX, 400, '상대방이 나갔습니다. 기권승!', '#facc15', 30);
+        this.triggerMatchEnd('VICTORY', message || '상대방이 경기 도중 퇴장하여 기권승을 거두었습니다!');
+      }
+      const statusEl = document.getElementById('rematch-status-text');
+      if (statusEl) {
+        statusEl.innerText = '⚠️ 상대방이 방을 나가 재대결을 진행할 수 없습니다.';
+      }
+      const btnRematch = document.getElementById('btn-rematch');
+      if (btnRematch) {
+        btnRematch.disabled = true;
+        btnRematch.classList.remove('accepted');
+        btnRematch.innerText = '상대방 퇴장 (재대결 불가)';
+      }
+    };
+  }
+
+  // 멀티플레이 라운드 승패 확정 및 결과/재대결 UI 표시
+  triggerMatchEnd(result, customDesc = null) {
+    if (this.matchResult) return;
+    this.matchResult = result;
+
+    // 차징 및 이동 키 초기화
+    this.player.keys = { w: false, a: false, s: false, d: false };
+    this.player.isCharging = false;
+    this.player.chargeRatio = 0;
+    this.isMouseDown = false;
+
+    // 서버에 라운드 결과 보고 (서버에서 중복 방지 후 전적 저장 및 MATCH_OVER_STATS 브로드캐스트)
+    if (this.mode === 'MULTIPLAYER' && this.network) {
+      this.network.reportMatchResult(result);
+    }
+
+    const overlay = document.getElementById('match-result-overlay');
+    const card = overlay ? overlay.querySelector('.match-result-card') : null;
+    const titleEl = document.getElementById('result-banner-title');
+    const descEl = document.getElementById('result-banner-desc');
+    const btnRematch = document.getElementById('btn-rematch');
+    const statusEl = document.getElementById('rematch-status-text');
+
+    if (card) {
+      card.classList.remove('victory', 'defeat');
+      card.classList.add(result === 'VICTORY' ? 'victory' : 'defeat');
+    }
+    if (titleEl) {
+      titleEl.innerText = result === 'VICTORY' ? '🏆 VICTORY 🏆' : '💀 DEFEAT 💀';
+    }
+    if (descEl) {
+      descEl.innerText = customDesc || (
+        result === 'VICTORY'
+          ? '상대를 쓰러뜨리고 눈싸움에서 승리했습니다!'
+          : '눈덩이에 맞아 쓰러졌습니다... 재대결로 설욕해보세요!'
+      );
+    }
+    if (btnRematch) {
+      btnRematch.disabled = false;
+      btnRematch.classList.remove('accepted');
+      btnRematch.innerText = '🔄 재대결 신청 (0/2)';
+    }
+    if (statusEl) {
+      statusEl.innerText = '상대방과 재대결하려면 아래 버튼을 누르세요! (양측 수락 시 즉시 시작)';
+    }
+    if (overlay) {
+      overlay.classList.remove('hidden');
+    }
   }
 
   resize() {
@@ -482,6 +619,8 @@ class Game {
 
     const overlay = document.getElementById('match-countdown-overlay');
     if (overlay) overlay.classList.add('hidden');
+    const resultOverlay = document.getElementById('match-result-overlay');
+    if (resultOverlay) resultOverlay.classList.add('hidden');
 
     const botLabel = document.getElementById('bot-name-label');
     if (botLabel) botLabel.innerText = this.bot.name;
@@ -508,6 +647,8 @@ class Game {
     }
     const pingBadge = document.getElementById('hud-ping-badge');
     if (pingBadge) pingBadge.classList.add('hidden');
+    const resultOverlay = document.getElementById('match-result-overlay');
+    if (resultOverlay) resultOverlay.classList.add('hidden');
   }
 
   reset() {
@@ -612,11 +753,11 @@ class Game {
 
         // 승패 체크
         if (this.opponent.isDead && !this.matchResult) {
-          this.matchResult = 'VICTORY';
           this.particles.addFloatingText(this.centerLineX, 360, 'VICTORY! 승리!', '#22c55e', 42);
+          this.triggerMatchEnd('VICTORY');
         } else if (this.player.isDead && !this.matchResult) {
-          this.matchResult = 'DEFEAT';
           this.particles.addFloatingText(this.centerLineX, 360, 'DEFEAT... 패배', '#ef4444', 42);
+          this.triggerMatchEnd('DEFEAT');
         }
       }
     } else {
@@ -801,8 +942,8 @@ class Game {
     // 5. 파티클 & 플로팅 텍스트
     this.particles.draw(ctx);
 
-    // 6. 멀티 대전 승패 결과 배너
-    if (this.mode === 'MULTIPLAYER' && this.matchResult) {
+    // 6. 멀티 대전 승패 결과 배너 (DOM 오버레이가 없을 때만 폴백으로 캔버스 렌더링)
+    if (this.mode === 'MULTIPLAYER' && this.matchResult && !document.getElementById('match-result-overlay')) {
       this.drawMatchResultBanner(ctx);
     }
 
