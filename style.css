@@ -124,6 +124,132 @@ html, body {
   100% { transform: translateY(-12px) scale(1.02); }
 }
 
+/* 타이틀 화면 닉네임 설정 바 (레트로 도트 스타일) */
+.nickname-setting-bar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(15, 23, 42, 0.88);
+  border: 3px solid #38bdf8;
+  border-radius: 6px;
+  padding: 10px 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 0 #0369a1, 0 10px 20px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  position: relative;
+  width: 320px;
+}
+
+.nickname-setting-bar .nick-label {
+  font-size: 13px;
+  color: #93c5fd;
+  text-shadow: 1px 1px 0 #000;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+}
+
+.nickname-setting-bar .nick-input-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+}
+
+.nickname-setting-bar .nick-input {
+  flex: 1;
+  background: #0284c7;
+  border: 2px solid #bae6fd;
+  color: #ffffff;
+  font-family: 'PixelFont', monospace;
+  font-size: 15px;
+  font-weight: bold;
+  padding: 8px 10px;
+  border-radius: 4px;
+  outline: none;
+  text-align: center;
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.nickname-setting-bar .nick-input:focus {
+  border-color: #facc15;
+  background: #0369a1;
+  box-shadow: 0 0 8px rgba(250, 204, 21, 0.6), inset 0 2px 4px rgba(0, 0, 0, 0.4);
+}
+
+.nickname-setting-bar .nick-btn-dice {
+  width: 38px;
+  height: 38px;
+  background: #334155;
+  border: 2px solid #64748b;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.1s, background 0.1s;
+}
+
+.nickname-setting-bar .nick-btn-dice:hover {
+  background: #475569;
+  border-color: #94a3b8;
+  transform: translateY(-2px);
+}
+
+.nickname-setting-bar .nick-btn-dice:active {
+  transform: translateY(2px) rotate(15deg);
+}
+
+.nickname-setting-bar .nick-btn-save {
+  background: #10b981;
+  border: 2px solid #a7f3d0;
+  color: #ffffff;
+  font-family: 'PixelFont', monospace;
+  font-size: 13px;
+  font-weight: bold;
+  padding: 0 12px;
+  height: 38px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 3px 0 #047857;
+  transition: transform 0.08s, background 0.08s;
+  white-space: nowrap;
+}
+
+.nickname-setting-bar .nick-btn-save:hover {
+  background: #34d399;
+  transform: translateY(-1px);
+}
+
+.nickname-setting-bar .nick-btn-save:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.nickname-toast {
+  position: absolute;
+  bottom: -32px;
+  background: #059669;
+  color: #ffffff;
+  font-family: 'PixelFont', monospace;
+  font-size: 11px;
+  padding: 4px 10px;
+  border: 2px solid #a7f3d0;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+  animation: toastFade 0.25s ease-out;
+  white-space: nowrap;
+  z-index: 20;
+}
+
+@keyframes toastFade {
+  0% { opacity: 0; transform: translateY(-4px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
 .menu-buttons {
   display: flex;
   flex-direction: column;
@@ -335,6 +461,48 @@ html, body {
   display: flex;
   gap: 3px;
   font-size: 15px;
+}
+
+/* 하단 HUD 실시간 핑(지연시간) 배지 */
+.hud-ping-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1.5px solid #334155;
+  border-radius: 4px;
+  padding: 2px 6px;
+  margin-left: 8px;
+  font-size: 11px;
+  font-family: 'PixelFont', monospace;
+  color: #94a3b8;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+  vertical-align: middle;
+}
+
+.hud-ping-badge .ping-dot {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.hud-ping-badge .ping-dot.good {
+  color: #22c55e;
+  text-shadow: 0 0 6px rgba(34, 197, 94, 0.8);
+}
+
+.hud-ping-badge .ping-dot.moderate {
+  color: #eab308;
+  text-shadow: 0 0 6px rgba(234, 179, 8, 0.8);
+}
+
+.hud-ping-badge .ping-dot.bad {
+  color: #ef4444;
+  text-shadow: 0 0 6px rgba(239, 68, 68, 0.8);
+}
+
+.hud-ping-badge .ping-text {
+  font-weight: bold;
+  color: #f1f5f9;
 }
 
 .text-right {
@@ -672,6 +840,49 @@ body.mobile-controls-active .cost-and-skills-wrapper {
 
 .close-btn:hover {
   color: #fca5a5;
+}
+
+/* 모드 선택 모달 내 접속 닉네임 바 */
+.modal-nick-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #1e293b;
+  border: 2px solid #334155;
+  border-radius: 4px;
+  padding: 8px 16px;
+  margin: 14px 24px 0 24px;
+}
+
+.modal-nick-bar .m-nick-tag {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+.modal-nick-bar .m-nick-val {
+  font-size: 15px;
+  font-weight: bold;
+  color: #38bdf8;
+  letter-spacing: 0.5px;
+  text-shadow: 1px 1px 0 #000;
+}
+
+.modal-nick-bar .m-nick-edit-btn {
+  background: #334155;
+  border: 1px solid #475569;
+  color: #e2e8f0;
+  font-family: 'PixelFont', monospace;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: background 0.1s, transform 0.1s;
+}
+
+.modal-nick-bar .m-nick-edit-btn:hover {
+  background: #475569;
+  color: #ffffff;
+  transform: translateY(-1px);
 }
 
 .modal-body {
@@ -1566,6 +1777,30 @@ body.mobile-controls-active .cost-and-skills-wrapper {
     padding: 0 6px;
     transform: scale(0.92);
     transform-origin: bottom center;
+  }
+
+  /* 닉네임 설정 바 모바일 최적화 */
+  .nickname-setting-bar {
+    width: 280px;
+    padding: 8px 12px;
+    margin-bottom: 12px;
+  }
+
+  .nickname-setting-bar .nick-input {
+    font-size: 13px;
+    padding: 6px 8px;
+  }
+
+  .nickname-setting-bar .nick-btn-dice {
+    width: 34px;
+    height: 34px;
+    font-size: 16px;
+  }
+
+  .nickname-setting-bar .nick-btn-save {
+    height: 34px;
+    padding: 0 10px;
+    font-size: 12px;
   }
 }
 

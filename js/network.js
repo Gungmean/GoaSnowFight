@@ -18,9 +18,14 @@ class NetworkManager {
     this.onQueueWaiting = null;
     this.onError = null;
 
-    // 패킷 송신 레이트 제어 (초당 30회)
+    // 패킷 송신 레이트 제어 (초당 60회로 상향하여 이동 지연 최소화)
     this.lastStateSendTime = 0;
-    this.stateSendInterval = 1000 / 30;
+    this.stateSendInterval = 1000 / 60;
+
+    // 실시간 핑(RTT) 측정
+    this.ping = 0;
+    this.pingInterval = null;
+    this.onPingUpdate = null;
   }
 
   connect() {
@@ -37,6 +42,7 @@ class NetworkManager {
       this.ws.onopen = () => {
         this.isConnected = true;
         console.log('[NETWORK] WebSocket connected to', wsUrl);
+        this.startPingLoop();
       };
 
       this.ws.onmessage = (event) => {
@@ -51,6 +57,7 @@ class NetworkManager {
 
       this.ws.onclose = () => {
         this.isConnected = false;
+        this.stopPingLoop();
         console.log('[NETWORK] WebSocket closed.');
       };
 
@@ -76,6 +83,13 @@ class NetworkManager {
 
   handleMessage(msg) {
     switch (msg.type) {
+      case 'PONG':
+        if (typeof msg.clientTime === 'number') {
+          this.ping = Math.max(1, Math.round(performance.now() - msg.clientTime));
+          if (this.onPingUpdate) this.onPingUpdate(this.ping);
+        }
+        break;
+
       case 'QUEUE_WAITING':
         if (this.onQueueWaiting) this.onQueueWaiting();
         break;
@@ -176,7 +190,8 @@ class NetworkManager {
       rollDirY: Number(player.rollDirY.toFixed(2)),
       isCharging: player.isCharging,
       chargeRatio: Number(player.chargeRatio.toFixed(2)),
-      hp: player.hp
+      hp: player.hp,
+      t: Math.round(now)
     });
   }
 
@@ -192,7 +207,8 @@ class NetworkManager {
       chargeRatio: Number(snowball.chargeRatio.toFixed(2)),
       speed: Math.round(snowball.speed),
       maxDistance: Math.round(snowball.maxDistance),
-      damage: snowball.damage
+      damage: snowball.damage,
+      t: Math.round(performance.now())
     });
   }
 
@@ -214,5 +230,23 @@ class NetworkManager {
       damage,
       fromX: Math.round(fromX)
     });
+  }
+
+  // --- 실시간 핑(지연 시간) 측정 루프 ---
+  startPingLoop() {
+    this.stopPingLoop();
+    this.sendPing();
+    this.pingInterval = setInterval(() => this.sendPing(), 1500);
+  }
+
+  stopPingLoop() {
+    if (this.pingInterval) clearInterval(this.pingInterval);
+    this.pingInterval = null;
+  }
+
+  sendPing() {
+    if (this.isConnected && this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.send({ type: 'PING', clientTime: performance.now() });
+    }
   }
 }

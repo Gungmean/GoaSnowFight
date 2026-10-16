@@ -67,7 +67,12 @@ class Game {
       this.mode = 'MULTIPLAYER';
       this.opponent = new RemotePlayer({ x: 1250, y: 460, name: opponentName });
       this.player.respawn(null, null);
-      this.player.name = role === 'p1' ? '1P (나)' : '나 (Player 2)';
+      const myCustomNick = (typeof window.getPlayerNickname === 'function' ? window.getPlayerNickname() : (localStorage.getItem('snow_player_name') || '눈싸움고수'));
+      this.player.name = myCustomNick;
+      const playerLabel = document.getElementById('player-name-label');
+      if (playerLabel) playerLabel.innerText = `${myCustomNick} (1P)`;
+      const pingBadge = document.getElementById('hud-ping-badge');
+      if (pingBadge) pingBadge.classList.remove('hidden');
       this.snowballs = [];
       this.player.skillManager.activeBarriers = [];
       this.matchResult = null;
@@ -100,7 +105,7 @@ class Game {
       const overlay = document.getElementById('match-countdown-overlay');
       const countNum = document.getElementById('countdown-number');
       const countTitle = document.getElementById('countdown-title');
-      if (countTitle) countTitle.innerText = `1:1 눈싸움 매칭 완료! (${opponentName} vs 나)`;
+      if (countTitle) countTitle.innerText = `1:1 눈싸움 매칭 완료! (${opponentName} vs ${myCustomNick})`;
       if (countNum) countNum.innerText = String(this.matchCountdown);
       if (overlay) overlay.classList.remove('hidden');
 
@@ -120,15 +125,22 @@ class Game {
     };
 
     this.network.onOpponentThrow = (msg) => {
+      // 투사체 지연 시간 선행 보정 (Projectile Lag Forward Compensation)
+      const ping = (this.network && typeof this.network.ping === 'number') ? this.network.ping : 0;
+      const latencySec = Math.max(0, Math.min(0.25, (ping / 2) / 1000));
+      const speed = msg.speed || (380 + (msg.chargeRatio || 0) * 440);
+      const advanceDist = speed * latencySec;
+
       const sb = new Snowball({
-        x: msg.x,
-        y: msg.y,
+        x: msg.x + (msg.dirX || 0) * advanceDist,
+        y: msg.y + (msg.dirY || 0) * advanceDist,
         dirX: msg.dirX,
         dirY: msg.dirY,
         chargeRatio: msg.chargeRatio,
         owner: 'opponent',
         damage: msg.damage || 1
       });
+      sb.distanceTraveled += advanceDist;
       this.snowballs.push(sb);
       if (this.sound) this.sound.playThrow(msg.chargeRatio);
     };
@@ -339,7 +351,12 @@ class Game {
     this.opponent = null;
     this.bot.respawn(null, null);
     this.player.respawn(null, null);
-    this.player.name = '1P (나)';
+    const myCustomNick = (typeof window.getPlayerNickname === 'function' ? window.getPlayerNickname() : (localStorage.getItem('snow_player_name') || '눈싸움고수'));
+    this.player.name = myCustomNick;
+    const playerLabel = document.getElementById('player-name-label');
+    if (playerLabel) playerLabel.innerText = `${myCustomNick} (1P)`;
+    const pingBadge = document.getElementById('hud-ping-badge');
+    if (pingBadge) pingBadge.classList.add('hidden');
     this.snowballs = [];
     this.player.skillManager.activeBarriers = [];
     this.matchResult = null;
@@ -371,6 +388,8 @@ class Game {
     if (this.mode === 'MULTIPLAYER') {
       this.network.leaveMatch();
     }
+    const pingBadge = document.getElementById('hud-ping-badge');
+    if (pingBadge) pingBadge.classList.add('hidden');
   }
 
   reset() {
@@ -469,7 +488,7 @@ class Game {
     if (this.mode === 'MULTIPLAYER') {
       this.network.sendPlayerState(this.player);
       if (this.opponent) {
-        this.opponent.update(dt, this.particles, this.sound);
+        this.opponent.update(dt, this.particles, this.sound, this.network ? this.network.ping : 0);
 
         // 승패 체크
         if (this.opponent.isDead && !this.matchResult) {

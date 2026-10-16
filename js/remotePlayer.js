@@ -5,6 +5,8 @@ class RemotePlayer {
     this.y = y;
     this.targetX = x;
     this.targetY = y;
+    this.vx = 0;
+    this.vy = 0;
     this.name = name;
 
     // 경기장 우측 영역
@@ -46,6 +48,8 @@ class RemotePlayer {
   applyNetworkState(state) {
     if (typeof state.x === 'number') this.targetX = state.x;
     if (typeof state.y === 'number') this.targetY = state.y;
+    if (typeof state.vx === 'number') this.vx = state.vx;
+    if (typeof state.vy === 'number') this.vy = state.vy;
     if (typeof state.facing === 'number') this.facing = state.facing;
     if (state.animName) this.animName = state.animName;
     if (typeof state.animTimer === 'number') this.animTimer = state.animTimer;
@@ -92,11 +96,16 @@ class RemotePlayer {
     }
   }
 
-  update(dt, particles, sound) {
-    // 1. 위치 보간 (LERP) - 네트워크 지연 완화
-    const lerpSpeed = 16;
-    this.x += (this.targetX - this.x) * Math.min(1, lerpSpeed * dt);
-    this.y += (this.targetY - this.y) * Math.min(1, lerpSpeed * dt);
+  update(dt, particles, sound, pingMs = 0) {
+    // 1. 데드 레코닝 (Dead Reckoning) 위치 외삽 예측 + LERP 보간
+    // 핑의 절반(편도 지연시간) 동안 상대가 이동했을 거리를 예측하여 화면 싱크를 실시간으로 맞춤
+    const latencySec = Math.max(0, Math.min(0.25, (pingMs / 2) / 1000));
+    const predictedX = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, this.targetX + this.vx * latencySec));
+    const predictedY = Math.max(this.bounds.minY, Math.min(this.bounds.maxY, this.targetY + this.vy * latencySec));
+
+    const lerpSpeed = 22; // 22로 상향하여 더욱 민첩하고 부드러운 위치 추종
+    this.x += (predictedX - this.x) * Math.min(1, lerpSpeed * dt);
+    this.y += (predictedY - this.y) * Math.min(1, lerpSpeed * dt);
 
     // 2. 피격 플래시 & 넉백 감쇄
     if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt;

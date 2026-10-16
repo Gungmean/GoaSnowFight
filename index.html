@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>고아 눈싸움 - 1:1 도트 눈싸움 액션</title>
-  <link rel="stylesheet" href="style.css?v=20261010_3">
+  <link rel="stylesheet" href="style.css?v=20261016_1">
 </head>
 <body>
   <div id="game-container">
@@ -19,6 +19,17 @@
         <!-- 메인 로고 -->
         <div class="logo-wrapper">
           <img src="logo.png" alt="고아 눈싸움 로고" class="game-logo pixelated">
+        </div>
+
+        <!-- 플레이어 닉네임 설정 바 (도트 픽셀 스타일) -->
+        <div class="nickname-setting-bar">
+          <div class="nick-label"><span class="nick-icon">🏷️</span> 내 닉네임</div>
+          <div class="nick-input-group">
+            <input type="text" id="input-player-nickname" class="nick-input" maxlength="10" placeholder="눈싸움고수" autocomplete="off" spellcheck="false">
+            <button type="button" id="btn-dice-nickname" class="nick-btn-dice" title="랜덤 닉네임 뽑기">🎲</button>
+            <button type="button" id="btn-save-nickname" class="nick-btn-save" title="닉네임 저장">저장</button>
+          </div>
+          <div id="nickname-save-toast" class="nickname-toast hidden">✓ 닉네임이 저장되었습니다!</div>
         </div>
 
         <!-- 메인 메뉴 버튼들 -->
@@ -140,7 +151,7 @@
           <div class="bottom-player-section left-player">
             <div class="avatar-box">1P</div>
             <div class="info-box">
-              <div class="player-name">나 (Player 1)</div>
+              <div id="player-name-label" class="player-name">나 (Player 1)</div>
               <div id="player-hearts" class="hearts-row">
                 <span class="heart active">❤️</span>
                 <span class="heart active">❤️</span>
@@ -148,6 +159,11 @@
                 <span class="heart active">❤️</span>
                 <span class="heart active">❤️</span>
               </div>
+            </div>
+            <!-- 실시간 핑 배지 (지연 시간 모니터링) -->
+            <div id="hud-ping-badge" class="hud-ping-badge" title="실시간 서버 지연 시간 (RTT)">
+              <span id="ping-indicator-dot" class="ping-dot good">●</span>
+              <span id="ping-indicator-text" class="ping-text">0ms</span>
             </div>
           </div>
 
@@ -270,6 +286,12 @@
         <div class="modal-header">
           <h2>눈싸움 모드 선택</h2>
           <button id="btn-close-modes" class="close-btn">&times;</button>
+        </div>
+        <!-- 현재 접속 닉네임 표시 바 -->
+        <div class="modal-nick-bar">
+          <span class="m-nick-tag">접속 닉네임:</span>
+          <span id="modal-current-nick" class="m-nick-val">눈싸움고수</span>
+          <button type="button" id="btn-modal-edit-nick" class="m-nick-edit-btn" title="타이틀에서 닉네임 변경">✏️ 변경</button>
         </div>
         <div class="modal-body mode-grid">
           <div id="btn-mode-training" class="mode-card active">
@@ -402,18 +424,18 @@
     </div>
   </div>
 
-  <!-- 스크립트 로드 순서 (캐시 방지 v=20261010_3 적용) -->
-  <script src="js/sound.js?v=20261010_3"></script>
-  <script src="js/particles.js?v=20261010_3"></script>
-  <script src="js/sprites.js?v=20261010_3"></script>
-  <script src="js/snowball.js?v=20261010_3"></script>
-  <script src="js/skills.js?v=20261010_3"></script>
-  <script src="js/player.js?v=20261010_3"></script>
-  <script src="js/remotePlayer.js?v=20261010_3"></script>
-  <script src="js/bot.js?v=20261010_3"></script>
-  <script src="js/network.js?v=20261010_3"></script>
-  <script src="js/mobileControls.js?v=20261010_3"></script>
-  <script src="js/game.js?v=20261010_3"></script>
-  <script src="js/main.js?v=20261010_3"></script>
+  <!-- 스크립트 로드 순서 (캐시 방지 v=20261016_1 적용) -->
+  <script src="js/sound.js?v=20261016_1"></script>
+  <script src="js/particles.js?v=20261016_1"></script>
+  <script src="js/sprites.js?v=20261016_1"></script>
+  <script src="js/snowball.js?v=20261016_1"></script>
+  <script src="js/skills.js?v=20261016_1"></script>
+  <script src="js/player.js?v=20261016_1"></script>
+  <script src="js/remotePlayer.js?v=20261016_1"></script>
+  <script src="js/bot.js?v=20261016_1"></script>
+  <script src="js/network.js?v=20261016_1"></script>
+  <script src="js/mobileControls.js?v=20261016_1"></script>
+  <script src="js/game.js?v=20261016_1"></script>
+  <script src="js/main.js?v=20261016_1"></script>
 </body>
 </html>

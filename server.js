@@ -54,8 +54,8 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// 2. WebSocket Multiplayer Server
-const wss = new WebSocket.Server({ server });
+// 2. WebSocket Multiplayer Server (지연 시간 최소화: perMessageDeflate 비활성화)
+const wss = new WebSocket.Server({ server, perMessageDeflate: false });
 
 let matchQueue = []; // Quick match waiting queue: [ { ws, playerName, id } ]
 const privateRooms = new Map(); // roomCode (string) -> { host: { ws, playerName }, guest: null, id }
@@ -172,6 +172,10 @@ function handleDisconnect(ws) {
 
 wss.on('connection', (ws) => {
   ws.id = 'usr_' + (nextPlayerId++);
+  // 지연 시간 단축: TCP 버퍼링(Nagle 알고리즘) 즉시 비활성화
+  if (ws._socket && typeof ws._socket.setNoDelay === 'function') {
+    ws._socket.setNoDelay(true);
+  }
   console.log(`[CONNECTED] Client ${ws.id}`);
 
   ws.on('message', (message) => {
@@ -183,6 +187,16 @@ wss.on('connection', (ws) => {
     }
 
     switch (msg.type) {
+      // 0. 실시간 핑/지연 시간(RTT) 측정 응답
+      case 'PING': {
+        sendJson(ws, {
+          type: 'PONG',
+          clientTime: msg.clientTime,
+          serverTime: Date.now()
+        });
+        break;
+      }
+
       // 1. 빠른 매칭 요청
       case 'JOIN_QUEUE': {
         const playerName = (msg.playerName || '눈싸움고수').trim().slice(0, 10);

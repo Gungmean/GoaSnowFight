@@ -17,6 +17,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnResetTraining = document.getElementById('btn-reset-training');
   const btnToggleLine = document.getElementById('btn-toggle-line');
 
+  // 닉네임 설정 관련 요소들
+  const inputNickname = document.getElementById('input-player-nickname');
+  const btnDiceNickname = document.getElementById('btn-dice-nickname');
+  const btnSaveNickname = document.getElementById('btn-save-nickname');
+  const nicknameToast = document.getElementById('nickname-save-toast');
+  const modalCurrentNick = document.getElementById('modal-current-nick');
+  const btnModalEditNick = document.getElementById('btn-modal-edit-nick');
+
   // 모달들
   const modalGameModes = document.getElementById('modal-game-modes');
   const modalSkillDeck = document.getElementById('modal-skill-deck');
@@ -44,8 +52,14 @@ document.addEventListener('DOMContentLoaded', async () => {
   const slotRmb = document.getElementById('slot-rmb');
 
   const playerHeartsContainer = document.getElementById('player-hearts');
+  const playerNameLabel = document.getElementById('player-name-label');
   const botHeartsContainer = document.getElementById('bot-hearts');
   const botNameLabel = document.getElementById('bot-name-label');
+
+  // 실시간 핑(지연시간) HUD 배지
+  const hudPingBadge = document.getElementById('hud-ping-badge');
+  const pingIndicatorDot = document.getElementById('ping-indicator-dot');
+  const pingIndicatorText = document.getElementById('ping-indicator-text');
 
   // 타이틀 및 인게임 앰비언트 눈송이 파티클 배경
   initTitleSnow(titleCanvas);
@@ -63,9 +77,117 @@ document.addEventListener('DOMContentLoaded', async () => {
   game.mobileControls = mobileControls;
   window.mobileControlsInstance = mobileControls;
 
+  // ==========================================
+  // 닉네임 관리 시스템 (로컬스토리지 영구 보관 & 실시간 동기화)
+  // ==========================================
+  const NICKNAME_KEY = 'snow_player_name';
+
+  function generateRandomNickname() {
+    const adjectives = ['눈꽃', '얼음', '질풍', '겨울', '눈사람', '북극곰', '펭귄', '하얀', '꽁꽁', '차가운', '빛나는', '날쌘', '산타', '루돌프'];
+    const nouns = ['마스터', '스나이퍼', '장인', '대장', '고수', '헌터', '기사', '눈싸움꾼', '눈뭉치', '요정', '달인'];
+    const randAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+    const randNoun = nouns[Math.floor(Math.random() * nouns.length)];
+    const randNum = Math.floor(10 + Math.random() * 90);
+    return `${randAdj}${randNoun}_${randNum}`;
+  }
+
+  function getPlayerNickname() {
+    let name = localStorage.getItem(NICKNAME_KEY);
+    if (!name || !name.trim()) {
+      name = generateRandomNickname();
+      localStorage.setItem(NICKNAME_KEY, name);
+    }
+    return name.trim();
+  }
+  window.getPlayerNickname = getPlayerNickname;
+
+  let toastTimer = null;
+  function showNicknameToast(msg = '✓ 닉네임이 저장되었습니다!') {
+    if (!nicknameToast) return;
+    nicknameToast.innerText = msg;
+    nicknameToast.classList.remove('hidden');
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      nicknameToast.classList.add('hidden');
+    }, 2000);
+  }
+
+  function applyAndSaveNickname(newName, isSilent = false) {
+    const trimmed = (newName || '').trim().slice(0, 10);
+    if (!trimmed) {
+      if (!isSilent) alert('닉네임을 1자 이상 10자 이하로 입력해주세요!');
+      return false;
+    }
+    localStorage.setItem(NICKNAME_KEY, trimmed);
+    if (inputNickname) inputNickname.value = trimmed;
+    if (modalCurrentNick) modalCurrentNick.innerText = trimmed;
+    if (playerNameLabel) playerNameLabel.innerText = `${trimmed} (1P)`;
+    if (game && game.player) game.player.name = trimmed;
+    if (!isSilent) {
+      showNicknameToast();
+      if (window.sounds) window.sounds.playClick();
+    }
+    return true;
+  }
+
+  // 초기 닉네임 바인딩
+  const curNickname = getPlayerNickname();
+  if (inputNickname) inputNickname.value = curNickname;
+  if (modalCurrentNick) modalCurrentNick.innerText = curNickname;
+  if (playerNameLabel) playerNameLabel.innerText = `${curNickname} (1P)`;
+
+  // 닉네임 저장 버튼
+  if (btnSaveNickname) {
+    btnSaveNickname.addEventListener('click', () => {
+      applyAndSaveNickname(inputNickname ? inputNickname.value : '');
+    });
+  }
+
+  // 엔터 키 입력 시 저장
+  if (inputNickname) {
+    inputNickname.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyAndSaveNickname(inputNickname.value);
+        inputNickname.blur();
+      }
+    });
+  }
+
+  // 랜덤 주사위 닉네임 버튼
+  if (btnDiceNickname) {
+    btnDiceNickname.addEventListener('click', () => {
+      const randNick = generateRandomNickname();
+      applyAndSaveNickname(randNick);
+    });
+  }
+
+  // 모달 내 닉네임 변경 바로가기 버튼
+  if (btnModalEditNick) {
+    btnModalEditNick.addEventListener('click', () => {
+      if (window.sounds) window.sounds.playClick();
+      modalGameModes.classList.add('hidden');
+      if (inputNickname) {
+        inputNickname.focus();
+        inputNickname.select();
+      }
+    });
+  }
+
+  // 실시간 핑(지연시간) HUD 갱신 콜백 연결
+  game.network.onPingUpdate = (ping) => {
+    if (pingIndicatorText) {
+      pingIndicatorText.innerText = `${ping}ms`;
+    }
+    if (pingIndicatorDot) {
+      pingIndicatorDot.className = 'ping-dot ' + (ping < 50 ? 'good' : ping < 120 ? 'moderate' : 'bad');
+    }
+  };
+
   // 1. "게임 시작" 클릭 -> 모드 선택 모달 열기
   btnStartGame.addEventListener('click', () => {
     window.sounds.playClick();
+    if (modalCurrentNick) modalCurrentNick.innerText = getPlayerNickname();
     modalGameModes.classList.remove('hidden');
   });
 
@@ -81,21 +203,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalGameModes.classList.add('hidden');
     enterTrainingMode();
   });
-
-  // 닉네임 생성기 (로컬스토리지 보관)
-  function getPlayerNickname() {
-    let name = localStorage.getItem('snow_player_name');
-    if (!name) {
-      const adjectives = ['눈꽃', '얼음', '질풍', '겨울', '눈사람', '북극곰', '펭귄', '하얀'];
-      const nouns = ['마스터', '스나이퍼', '장인', '대장', '고수', '헌터', '기사'];
-      const randAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
-      const randNoun = nouns[Math.floor(Math.random() * nouns.length)];
-      const randNum = Math.floor(10 + Math.random() * 90);
-      name = `${randAdj}${randNoun}_${randNum}`;
-      localStorage.setItem('snow_player_name', name);
-    }
-    return name;
-  }
 
   // 네트워크 방 생성 및 에러 콜백 등록
   game.network.onRoomCreated = (roomCode) => {
