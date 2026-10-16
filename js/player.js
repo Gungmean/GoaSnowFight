@@ -41,6 +41,8 @@ class Player {
     this.rollDirY = 0;
     this.rollSpeed = 640;
     this.isInvulnerable = false; // 구르기 무적
+    this.rollGraceTimer = 0; // 네트워크 지연 보정용 구르기 직후 무적 유예 타이머
+    this.onRoll = null; // 구르기 발동 시 즉시 네트워크 전송 콜백
 
     // 차징 시스템
     this.isCharging = false;
@@ -135,18 +137,20 @@ class Player {
   }
 
   releaseCharge(snowballs, particles, sound) {
-    if (!this.isCharging) return;
+    if (!this.isCharging) return null;
     this.isCharging = false;
 
-    if (this.isDead || this.isRolling) return;
+    if (this.isDead || this.isRolling) return null;
 
-    // 눈덩이 발사
-    const dirX = this.aimX - this.x;
-    const dirY = this.aimY - this.y;
+    // 눈덩이 발사 (발사 원점 y - 20 기준 정확한 조준 벡터 계산)
+    const spawnX = Math.round(this.x);
+    const spawnY = Math.round(this.y - 20);
+    const dirX = this.aimX - spawnX;
+    const dirY = this.aimY - spawnY;
 
     const sb = new Snowball({
-      x: this.x,
-      y: this.y - 20,
+      x: spawnX,
+      y: spawnY,
       dirX,
       dirY,
       chargeRatio: this.chargeRatio,
@@ -157,6 +161,7 @@ class Player {
     snowballs.push(sb);
     if (sound) sound.playThrow(this.chargeRatio);
 
+    this.facing = this.aimX >= spawnX ? 1 : -1;
     this.triggerThrowMotion();
     this.chargeRatio = 0;
     return sb;
@@ -168,11 +173,11 @@ class Player {
   }
 
   triggerRoll() {
-    if (this.isRolling || this.isDead) return;
+    if (this.isRolling || this.isDead) return false;
     // 쿨타임 및 코스트 확인
     if (this.currentRollCooldown > 0 || this.cost < 1) {
       if (window.sounds) window.sounds.playDeny();
-      return;
+      return false;
     }
 
     // 코스트 1 소모, 쿨다운 설정
@@ -204,6 +209,7 @@ class Player {
     this.rollTimer = 0;
     this.animTimer = 0; // 반드시 0부터 4프레임 순차 재생!
     this.isInvulnerable = true;
+    this.rollGraceTimer = 0.15;
     this.isCharging = false;
     this.chargeRatio = 0;
 
@@ -213,14 +219,20 @@ class Player {
     }
 
     if (window.sounds) window.sounds.playRoll();
+    if (this.onRoll) this.onRoll(this);
+    return true;
+  }
+
+  isRollInvulnerable() {
+    return this.isRolling || this.isInvulnerable || this.rollGraceTimer > 0;
   }
 
   takeDamage(amount, fromX, particles, sound) {
-    if (this.isDead) return;
-    if (this.isInvulnerable || this.isRolling) {
+    if (this.isDead) return false;
+    if (this.isRollInvulnerable()) {
       // 회피 성공
       if (particles) particles.addFloatingText(this.x, this.y - 60, '회피!', '#38bdf8', 18);
-      return;
+      return false;
     }
 
     this.hp = Math.max(0, this.hp - amount);
@@ -240,21 +252,30 @@ class Player {
       this.respawnTimer = 2.5;
       this.isCharging = false;
       this.isRolling = false;
+      this.isInvulnerable = false;
       if (sound) sound.playDefeat();
       if (particles) particles.addFloatingText(this.x, this.y - 90, 'K.O!', '#dc2626', 28);
     }
+    return true;
   }
 
   respawn(particles, sound) {
     this.hp = this.maxHp;
     this.isDead = false;
+    this.respawnTimer = 0;
     this.cost = 5;
     this.x = 350;
     this.y = 450;
+    this.vx = 0;
+    this.vy = 0;
     this.knockbackX = 0;
     this.knockbackY = 0;
     this.isRolling = false;
+    this.isInvulnerable = false;
+    this.rollGraceTimer = 0;
     this.isCharging = false;
+    this.chargeRatio = 0;
+    this.keys = { w: false, a: false, s: false, d: false, shift: false };
     if (sound) sound.playRespawn();
     if (particles) {
       particles.addFloatingText(this.x, this.y - 70, '부활!', '#22c55e', 22);
@@ -262,15 +283,18 @@ class Player {
     }
   }
 
-  update(dt, particles, sound) {
+  update(dt, particles, sound, allowRespawn = true) {
     // 1. 코스트 회복
     if (!this.isDead) {
       this.cost = Math.min(this.maxCost, this.cost + this.costRechargeRate * dt);
     }
 
-    // 2. 구르기 쿨다운
+    // 2. 구르기 쿨다운 및 무적 유예 타이머
     if (this.currentRollCooldown > 0) {
       this.currentRollCooldown = Math.max(0, this.currentRollCooldown - dt);
+    }
+    if (!this.isRolling && this.rollGraceTimer > 0) {
+      this.rollGraceTimer = Math.max(0, this.rollGraceTimer - dt);
     }
 
     // 3. 스킬 업데이트
@@ -283,11 +307,13 @@ class Player {
     this.knockbackX *= Math.pow(0.01, dt);
     this.knockbackY *= Math.pow(0.01, dt);
 
-    // 5. 사망 및 리스폰
+    // 5. 사망 및 리스폰 (멀티플레이에서는 자동 리스폰 금지!)
     if (this.isDead) {
       this.animName = 'lose';
       this.animTimer += dt;
-      if (this.respawnTimer > 0) {
+      this.vx = 0;
+      this.vy = 0;
+      if (allowRespawn && this.respawnTimer > 0) {
         this.respawnTimer -= dt;
         if (this.respawnTimer <= 0) {
           this.respawn(particles, sound);
@@ -307,8 +333,10 @@ class Player {
       const speedCurve = Math.sin((1 - progress) * Math.PI * 0.5) * 1.35 + 0.5;
 
       // 구르기 이동
-      this.x += this.rollDirX * this.rollSpeed * speedCurve * dt;
-      this.y += this.rollDirY * this.rollSpeed * speedCurve * dt;
+      this.vx = this.rollDirX * this.rollSpeed * speedCurve;
+      this.vy = this.rollDirY * this.rollSpeed * speedCurve;
+      this.x += this.vx * dt;
+      this.y += this.vy * dt;
 
       // 잔상 생성
       if (Math.random() < 0.65) {
@@ -329,6 +357,7 @@ class Player {
       if (this.rollTimer >= this.rollDuration) {
         this.isRolling = false;
         this.isInvulnerable = false;
+        this.rollGraceTimer = 0.15; // 구르기 종료 직후 150ms 네트워크 핑 보정 무적 유지
         this.animTimer = 0;
         this.facing = this.aimX >= this.x ? 1 : -1;
       }

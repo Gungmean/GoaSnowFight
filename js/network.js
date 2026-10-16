@@ -10,9 +10,13 @@ class NetworkManager {
     // 이벤트 리스너 콜백
     this.onMatchStart = null;
     this.onOpponentState = null;
+    this.onOpponentRoll = null;
     this.onOpponentThrow = null;
     this.onOpponentSkill = null;
     this.onOpponentDamage = null;
+    this.onOpponentHitCheck = null;
+    this.onOpponentDodge = null;
+    this.onOpponentBarrierHit = null;
     this.onOpponentLeft = null;
     this.onRoomCreated = null;
     this.onQueueWaiting = null;
@@ -120,6 +124,10 @@ class NetworkManager {
         if (this.onOpponentState) this.onOpponentState(msg);
         break;
 
+      case 'SYNC_ROLL':
+        if (this.onOpponentRoll) this.onOpponentRoll(msg);
+        break;
+
       case 'SYNC_THROW':
         if (this.onOpponentThrow) this.onOpponentThrow(msg);
         break;
@@ -130,6 +138,18 @@ class NetworkManager {
 
       case 'SYNC_DAMAGE':
         if (this.onOpponentDamage) this.onOpponentDamage(msg);
+        break;
+
+      case 'SYNC_HIT_CHECK':
+        if (this.onOpponentHitCheck) this.onOpponentHitCheck(msg);
+        break;
+
+      case 'SYNC_DODGE':
+        if (this.onOpponentDodge) this.onOpponentDodge(msg);
+        break;
+
+      case 'SYNC_BARRIER_HIT':
+        if (this.onOpponentBarrierHit) this.onOpponentBarrierHit(msg);
         break;
 
       case 'OPPONENT_LEFT':
@@ -170,10 +190,10 @@ class NetworkManager {
   }
 
   // 실시간 내 상태 전송 (서버에서 X축 미러링되어 상대에게 전달됨)
-  sendPlayerState(player) {
+  sendPlayerState(player, force = false) {
     if (!this.currentRoomId) return;
     const now = performance.now();
-    if (now - this.lastStateSendTime < this.stateSendInterval) return;
+    if (!force && now - this.lastStateSendTime < this.stateSendInterval) return;
     this.lastStateSendTime = now;
 
     this.send({
@@ -195,18 +215,33 @@ class NetworkManager {
     });
   }
 
+  // 구르기 발동 즉시 전송 (쓰로틀링 없이 즉시 송출하여 상대 화면 무적/구르기 동기화)
+  sendRoll(player) {
+    if (!this.currentRoomId) return;
+    this.send({
+      type: 'SYNC_ROLL',
+      x: Math.round(player.x),
+      y: Math.round(player.y),
+      rollDirX: Number(player.rollDirX.toFixed(2)),
+      rollDirY: Number(player.rollDirY.toFixed(2)),
+      facing: player.facing,
+      t: Math.round(performance.now())
+    });
+  }
+
   // 눈덩이 투척 이벤트 전송
   sendThrow(snowball) {
     if (!this.currentRoomId) return;
     this.send({
       type: 'SYNC_THROW',
+      id: snowball.id,
       x: Math.round(snowball.x),
       y: Math.round(snowball.y),
       dirX: Number(snowball.dirX.toFixed(3)),
       dirY: Number(snowball.dirY.toFixed(3)),
       chargeRatio: Number(snowball.chargeRatio.toFixed(2)),
       speed: Math.round(snowball.speed),
-      maxDistance: Math.round(snowball.maxDistance),
+      maxDistance: Math.round(snowball.maxRange),
       damage: snowball.damage,
       t: Math.round(performance.now())
     });
@@ -222,13 +257,46 @@ class NetworkManager {
     });
   }
 
-  // 피격 전달
-  sendDamage(damage, fromX) {
+  // 피격 확정 전달 (피격당한 플레이어 -> 공격자)
+  sendDamage(damage, fromX, hp, sbId = null) {
     if (!this.currentRoomId) return;
     this.send({
       type: 'SYNC_DAMAGE',
       damage,
-      fromX: Math.round(fromX)
+      fromX: Math.round(fromX),
+      hp,
+      sbId
+    });
+  }
+
+  // 공격자 측 명중 확인 요청 (공격자 -> 피격자)
+  sendHitCheck(damage, fromX, sbId = null) {
+    if (!this.currentRoomId) return;
+    this.send({
+      type: 'SYNC_HIT_CHECK',
+      damage,
+      fromX: Math.round(fromX),
+      sbId
+    });
+  }
+
+  // 구르기 회피 성공 알림 (피격자 -> 공격자)
+  sendDodge(hp, sbId = null) {
+    if (!this.currentRoomId) return;
+    this.send({
+      type: 'SYNC_DODGE',
+      hp,
+      sbId
+    });
+  }
+
+  // 빙벽 피격 동기화
+  sendBarrierHit(barrierId, damage) {
+    if (!this.currentRoomId) return;
+    this.send({
+      type: 'SYNC_BARRIER_HIT',
+      barrierId,
+      damage
     });
   }
 

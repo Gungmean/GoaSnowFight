@@ -29,6 +29,14 @@ class Game {
     this.network = new NetworkManager();
     this.matchCountdown = 0;
     this.matchResult = null; // null | 'VICTORY' | 'DEFEAT'
+    this.processedHitIds = new Set(); // 중복 피격/회피 방지용 투사체 ID 세트
+
+    // 플레이어 구르기 즉시 네트워크 브로드캐스트 연결
+    this.player.onRoll = (p) => {
+      if (this.mode === 'MULTIPLAYER') {
+        this.network.sendRoll(p);
+      }
+    };
 
     // 경기장 분할선 좌표 (배경 사진 기준 x = 836)
     this.centerLineX = 836;
@@ -54,6 +62,10 @@ class Game {
     this.bindNetworkEvents();
   }
 
+  canPlayerAct() {
+    return this.isRunning && this.matchCountdown <= 0 && !this.matchResult && !this.player.isDead;
+  }
+
   async init() {
     await this.sprites.loadAll();
     this.resize();
@@ -67,6 +79,10 @@ class Game {
       this.mode = 'MULTIPLAYER';
       this.opponent = new RemotePlayer({ x: 1250, y: 460, name: opponentName });
       this.player.respawn(null, null);
+      // 멀티플레이에서는 항상 중앙 라인 활성화 및 영역 제한 강제
+      this.showCenterLine = true;
+      this.player.bounds.maxX = 800;
+
       const myCustomNick = (typeof window.getPlayerNickname === 'function' ? window.getPlayerNickname() : (localStorage.getItem('snow_player_name') || '눈싸움고수'));
       this.player.name = myCustomNick;
       const playerLabel = document.getElementById('player-name-label');
@@ -74,6 +90,7 @@ class Game {
       const pingBadge = document.getElementById('hud-ping-badge');
       if (pingBadge) pingBadge.classList.remove('hidden');
       this.snowballs = [];
+      this.processedHitIds.clear();
       this.player.skillManager.activeBarriers = [];
       this.matchResult = null;
       this.matchCountdown = countdownSec || 3;
@@ -124,14 +141,22 @@ class Game {
       }
     };
 
+    this.network.onOpponentRoll = (msg) => {
+      if (this.opponent) {
+        this.opponent.startNetworkRoll(msg);
+        if (this.sound) this.sound.playRoll();
+      }
+    };
+
     this.network.onOpponentThrow = (msg) => {
       // 투사체 지연 시간 선행 보정 (Projectile Lag Forward Compensation)
       const ping = (this.network && typeof this.network.ping === 'number') ? this.network.ping : 0;
-      const latencySec = Math.max(0, Math.min(0.25, (ping / 2) / 1000));
+      const latencySec = Math.max(0, Math.min(0.20, (ping / 2) / 1000));
       const speed = msg.speed || (380 + (msg.chargeRatio || 0) * 440);
       const advanceDist = speed * latencySec;
 
       const sb = new Snowball({
+        id: msg.id,
         x: msg.x + (msg.dirX || 0) * advanceDist,
         y: msg.y + (msg.dirY || 0) * advanceDist,
         dirX: msg.dirX,
@@ -140,7 +165,7 @@ class Game {
         owner: 'opponent',
         damage: msg.damage || 1
       });
-      sb.distanceTraveled += advanceDist;
+      sb.traveled += advanceDist;
       this.snowballs.push(sb);
       if (this.sound) this.sound.playThrow(msg.chargeRatio);
     };
@@ -148,31 +173,54 @@ class Game {
     this.network.onOpponentSkill = (msg) => {
       if (!this.opponent) return;
 
+      const ping = (this.network && typeof this.network.ping === 'number') ? this.network.ping : 0;
+      const latencySec = Math.max(0, Math.min(0.20, (ping / 2) / 1000));
+
+      // 서버에서 미러링된 발사 원점 및 조준 타겟 좌표 사용
+      const startX = typeof msg.x === 'number' ? msg.x : this.opponent.x;
+      const startY = typeof msg.y === 'number' ? msg.y : (this.opponent.y - 20);
+      const targetX = typeof msg.targetX === 'number' ? msg.targetX : this.player.x;
+      const targetY = typeof msg.targetY === 'number' ? msg.targetY : (this.player.y - 20);
+
       if (msg.skillType === 'q') {
-        const baseAngle = Math.atan2(msg.targetY - this.opponent.y, msg.targetX - this.opponent.x);
+        const baseAngle = Math.atan2(targetY - startY, targetX - startX);
+        // X축 좌우 미러링 시 (baseAngle' = PI - baseAngle) 원래 3갈래와 동일한 Y성분을 유지하도록 부호 반전
         const spreads = [-0.22, 0, 0.22];
-        spreads.forEach(angleOffset => {
-          const a = baseAngle + angleOffset;
+        const ids = Array.isArray(msg.ids) ? msg.ids : [];
+        spreads.forEach((angleOffset, idx) => {
+          const a = baseAngle - angleOffset;
+          const dx = Math.cos(a);
+          const dy = Math.sin(a);
+          const speed = 380 + 0.65 * 440;
+          const advanceDist = speed * latencySec;
           const sb = new Snowball({
-            x: this.opponent.x,
-            y: this.opponent.y - 20,
-            dirX: Math.cos(a),
-            dirY: Math.sin(a),
+            id: ids[idx] || undefined,
+            x: startX + dx * advanceDist,
+            y: startY + dy * advanceDist,
+            dirX: dx,
+            dirY: dy,
             chargeRatio: 0.65,
             owner: 'opponent',
             damage: 1,
             isSkill: true,
             skillType: 'q'
           });
+          sb.traveled += advanceDist;
           this.snowballs.push(sb);
         });
         if (this.sound) this.sound.playSkillCast();
+        this.particles.addFloatingText(this.opponent.x, this.opponent.y - 70, '트리플 샷!', '#38bdf8');
       } else if (msg.skillType === 'e') {
-        const angle = Math.atan2(msg.targetY - this.opponent.y, msg.targetX - this.opponent.x);
-        const dist = Math.min(130, Math.hypot(msg.targetX - this.opponent.x, msg.targetY - this.opponent.y));
-        const bx = this.opponent.x + Math.cos(angle) * dist;
-        const by = this.opponent.y + Math.sin(angle) * dist;
+        let bx = typeof msg.bx === 'number' ? msg.bx : null;
+        let by = typeof msg.by === 'number' ? msg.by : null;
+        if (bx === null || by === null) {
+          const angle = Math.atan2(targetY - this.opponent.y, targetX - this.opponent.x);
+          const dist = Math.min(130, Math.hypot(targetX - this.opponent.x, targetY - this.opponent.y));
+          bx = this.opponent.x + Math.cos(angle) * dist;
+          by = this.opponent.y + Math.sin(angle) * dist;
+        }
         this.opponent.activeBarriers.push({
+          id: msg.barrierId || `b_opp_${Date.now()}`,
           x: bx,
           y: by,
           w: 48,
@@ -184,24 +232,104 @@ class Game {
         if (this.sound) this.sound.playSkillCast();
         this.particles.addFloatingText(this.opponent.x, this.opponent.y - 70, '상대 빙벽!', '#f43f5e');
       } else if (msg.skillType === 'rmb') {
+        const rawDx = targetX - startX;
+        const rawDy = targetY - startY;
+        const len = Math.hypot(rawDx, rawDy) || 1;
+        const dx = rawDx / len;
+        const dy = rawDy / len;
+        const speed = 380 + 1.0 * 440;
+        const advanceDist = speed * latencySec;
+
         const sb = new Snowball({
-          x: this.opponent.x,
-          y: this.opponent.y - 20,
-          dirX: msg.targetX - this.opponent.x,
-          dirY: msg.targetY - this.opponent.y,
+          id: msg.sbId || undefined,
+          x: startX + dx * advanceDist,
+          y: startY + dy * advanceDist,
+          dirX: dx,
+          dirY: dy,
           chargeRatio: 1.0,
           owner: 'opponent',
           damage: 2,
           isSkill: true,
           skillType: 'rmb'
         });
+        sb.traveled += advanceDist;
         this.snowballs.push(sb);
         if (this.sound) this.sound.playChargeFull();
+        this.particles.addFloatingText(this.opponent.x, this.opponent.y - 70, '메가 눈폭탄!', '#f43f5e', 24);
       }
     };
 
+    // 상대방이 내 피격을 확인하여 확정 데미지를 보냈을 때 (또는 내 화면에서 아직 판정 안 된 투사체 처리)
     this.network.onOpponentDamage = (msg) => {
+      if (this.matchResult) return;
+      if (msg.sbId && this.processedHitIds.has(msg.sbId)) return;
+      if (msg.sbId) this.processedHitIds.add(msg.sbId);
+
+      // 만약 내가 구르기 무적 상태라면 데미지 무시 및 회피 통보
+      if (this.player.isRollInvulnerable()) {
+        this.particles.addFloatingText(this.player.x, this.player.y - 60, '회피!', '#bae6fd');
+        this.network.sendDodge(this.player.hp, msg.sbId);
+        return;
+      }
+
+      // 해당 눈덩이가 아직 내 화면에 남아있다면 폭발 처리
+      if (msg.sbId) {
+        const idx = this.snowballs.findIndex(s => s.id === msg.sbId);
+        if (idx !== -1) {
+          this.snowballs[idx].explode(this.particles, this.sound, true);
+          this.snowballs.splice(idx, 1);
+        }
+      }
+
       this.player.takeDamage(msg.damage, msg.fromX, this.particles, this.sound);
+      this.triggerCameraShake(8, 0.2);
+    };
+
+    // 공격자가 내게 맞았다고 판정 요청 (SYNC_HIT_CHECK)
+    this.network.onOpponentHitCheck = (msg) => {
+      if (this.matchResult || this.player.isDead) return;
+      if (msg.sbId && this.processedHitIds.has(msg.sbId)) return;
+
+      if (this.player.isRollInvulnerable()) {
+        if (msg.sbId) this.processedHitIds.add(msg.sbId);
+        this.particles.addFloatingText(this.player.x, this.player.y - 60, '회피!', '#bae6fd');
+        this.network.sendDodge(this.player.hp, msg.sbId);
+        return;
+      }
+
+      if (msg.sbId) {
+        this.processedHitIds.add(msg.sbId);
+        const idx = this.snowballs.findIndex(s => s.id === msg.sbId);
+        if (idx !== -1) {
+          this.snowballs[idx].explode(this.particles, this.sound, true);
+          this.snowballs.splice(idx, 1);
+        }
+      }
+
+      const applied = this.player.takeDamage(msg.damage, msg.fromX, this.particles, this.sound);
+      if (applied) {
+        this.triggerCameraShake(8, 0.2);
+      } else {
+        this.network.sendDodge(this.player.hp, msg.sbId);
+      }
+    };
+
+    // 상대방이 내 눈덩이를 구르기로 회피했을 때
+    this.network.onOpponentDodge = (msg) => {
+      if (this.opponent) {
+        this.opponent.onDodge(msg, this.particles);
+      }
+    };
+
+    // 상대방 눈덩이가 내 빙벽을 타격하거나 내 눈덩이가 상대 빙벽을 타격했을 때 동기화
+    this.network.onOpponentBarrierHit = (msg) => {
+      if (!msg.barrierId) return;
+      for (const b of this.player.skillManager.activeBarriers) {
+        if (b.id === msg.barrierId) {
+          b.hp -= (msg.damage || 1);
+          break;
+        }
+      }
     };
 
     this.network.onOpponentLeft = (message) => {
@@ -255,36 +383,46 @@ class Game {
   }
 
   bindEvents() {
+    // 창 포커스 해제 시 키 끼임 및 차징 고착 해제
+    window.addEventListener('blur', () => {
+      if (this.player) {
+        this.player.keys = { w: false, a: false, s: false, d: false };
+        this.player.isCharging = false;
+        this.player.chargeRatio = 0;
+        this.isMouseDown = false;
+      }
+    });
+
     // 키보드 입력
     window.addEventListener('keydown', (e) => {
-      if (!this.isRunning) return;
+      if (!this.canPlayerAct()) return;
       this.sound.unlock();
 
       // Q 스킬
       if (e.key === 'q' || e.key === 'Q') {
-        const ok = this.player.skillManager.castQ(
+        const res = this.player.skillManager.castQ(
           this.mouseVirtualX,
           this.mouseVirtualY,
           this.snowballs,
           this.particles,
           this.sound
         );
-        if (ok && this.mode === 'MULTIPLAYER') {
-          this.network.sendSkill('q', { targetX: this.mouseVirtualX, targetY: this.mouseVirtualY });
+        if (res && this.mode === 'MULTIPLAYER') {
+          this.network.sendSkill('q', res);
         }
         return;
       }
 
       // E 스킬
       if (e.key === 'e' || e.key === 'E') {
-        const ok = this.player.skillManager.castE(
+        const res = this.player.skillManager.castE(
           this.mouseVirtualX,
           this.mouseVirtualY,
           this.particles,
           this.sound
         );
-        if (ok && this.mode === 'MULTIPLAYER') {
-          this.network.sendSkill('e', { targetX: this.mouseVirtualX, targetY: this.mouseVirtualY });
+        if (res && this.mode === 'MULTIPLAYER') {
+          this.network.sendSkill('e', res);
         }
         return;
       }
@@ -307,7 +445,7 @@ class Game {
 
     // 마우스 좌클릭 차징
     this.canvas.addEventListener('mousedown', (e) => {
-      if (!this.isRunning) return;
+      if (!this.canPlayerAct()) return;
       this.sound.unlock();
 
       if (e.button === 0) {
@@ -317,15 +455,15 @@ class Game {
       } else if (e.button === 2) {
         // 우클릭: 메가 눈폭탄 스킬
         e.preventDefault();
-        const ok = this.player.skillManager.castRMB(
+        const res = this.player.skillManager.castRMB(
           this.mouseVirtualX,
           this.mouseVirtualY,
           this.snowballs,
           this.particles,
           this.sound
         );
-        if (ok && this.mode === 'MULTIPLAYER') {
-          this.network.sendSkill('rmb', { targetX: this.mouseVirtualX, targetY: this.mouseVirtualY });
+        if (res && this.mode === 'MULTIPLAYER') {
+          this.network.sendSkill('rmb', res);
         }
       }
     });
@@ -338,6 +476,11 @@ class Game {
       if (!this.isRunning) return;
       if (e.button === 0 && this.isMouseDown) {
         this.isMouseDown = false;
+        if (!this.canPlayerAct()) {
+          this.player.isCharging = false;
+          this.player.chargeRatio = 0;
+          return;
+        }
         const sb = this.player.releaseCharge(this.snowballs, this.particles, this.sound);
         if (sb && this.mode === 'MULTIPLAYER') {
           this.network.sendThrow(sb);
@@ -358,6 +501,7 @@ class Game {
     const pingBadge = document.getElementById('hud-ping-badge');
     if (pingBadge) pingBadge.classList.add('hidden');
     this.snowballs = [];
+    this.processedHitIds.clear();
     this.player.skillManager.activeBarriers = [];
     this.matchResult = null;
     this.matchCountdown = 0;
@@ -398,6 +542,7 @@ class Game {
       this.bot.respawn(null, null);
     }
     this.snowballs = [];
+    this.processedHitIds.clear();
     this.player.skillManager.activeBarriers = [];
     this.matchResult = null;
 
@@ -476,8 +621,9 @@ class Game {
       this.shakeDuration -= dt;
     }
 
-    // 1. 플레이어 업데이트
-    this.player.update(dt, this.particles, this.sound);
+    // 1. 플레이어 업데이트 (멀티플레이에서는 사망 후 자동 리스폰 비활성화!)
+    const allowRespawn = (this.mode === 'TRAINING');
+    this.player.update(dt, this.particles, this.sound, allowRespawn);
 
     // 모바일 조이스틱 & 액션 패드 쿨다운 동기화
     if (this.mobileControls) {
@@ -513,24 +659,9 @@ class Game {
         continue;
       }
 
-      // 1P 방벽(빙벽) 충돌
-      for (const barrier of this.player.skillManager.activeBarriers) {
-        const dist = Math.hypot(sb.x - barrier.x, sb.y - barrier.y);
-        if (dist < sb.radius + barrier.w / 2) {
-          barrier.hp -= sb.damage;
-          sb.explode(this.particles, this.sound, true);
-          this.triggerCameraShake(4, 0.1);
-          break;
-        }
-      }
-      if (sb.isDead) {
-        this.snowballs.splice(i, 1);
-        continue;
-      }
-
-      // 상대방 방벽 충돌 (멀티플레이)
-      if (this.mode === 'MULTIPLAYER' && this.opponent) {
-        for (const barrier of this.opponent.activeBarriers) {
+      // 1P 방벽(빙벽) 충돌: 상대/더미가 쏜 눈덩이만 차단 (내 눈덩이는 통과!)
+      if (sb.owner !== 'player') {
+        for (const barrier of this.player.skillManager.activeBarriers) {
           const dist = Math.hypot(sb.x - barrier.x, sb.y - barrier.y);
           if (dist < sb.radius + barrier.w / 2) {
             barrier.hp -= sb.damage;
@@ -545,33 +676,86 @@ class Game {
         }
       }
 
-      // 플레이어 대상 피격 판정 (상대/더미가 쏜 눈덩이)
-      if (sb.owner !== 'player' && !this.player.isDead) {
-        const pDist = Math.hypot(sb.x - this.player.x, sb.y - (this.player.y - 40));
-        if (pDist < sb.radius + 32) {
-          this.player.takeDamage(sb.damage, sb.x, this.particles, this.sound);
-          sb.explode(this.particles, this.sound, true);
-          this.triggerCameraShake(8, 0.2);
+      // 상대방 방벽 충돌 (멀티플레이): 내가 쏜 눈덩이만 상대 방벽에 충돌
+      if (this.mode === 'MULTIPLAYER' && this.opponent && sb.owner === 'player') {
+        for (const barrier of this.opponent.activeBarriers) {
+          const dist = Math.hypot(sb.x - barrier.x, sb.y - barrier.y);
+          if (dist < sb.radius + barrier.w / 2) {
+            barrier.hp -= sb.damage;
+            this.network.sendBarrierHit(barrier.id, sb.damage);
+            sb.explode(this.particles, this.sound, true);
+            this.triggerCameraShake(4, 0.1);
+            break;
+          }
+        }
+        if (sb.isDead) {
           this.snowballs.splice(i, 1);
           continue;
         }
       }
 
-      // 적 피격 판정 (플레이어가 쏜 눈덩이)
-      if (sb.owner === 'player') {
-        if (this.mode === 'MULTIPLAYER' && this.opponent && !this.opponent.isDead) {
-          const oDist = Math.hypot(sb.x - this.opponent.x, sb.y - (this.opponent.y - 40));
-          if (oDist < sb.radius + 32) {
-            this.opponent.takeDamage(sb.damage, sb.x, this.particles, this.sound);
-            this.network.sendDamage(sb.damage, sb.x);
+      // 플레이어 대상 피격 판정 (상대/더미가 쏜 눈덩이)
+      if (sb.owner !== 'player' && !this.player.isDead && !this.matchResult) {
+        const pDist = Math.hypot(sb.x - this.player.x, sb.y - (this.player.y - 40));
+        if (pDist < sb.radius + 30) {
+          // 구르기 무적 상태면 눈덩이가 폭발하지 않고 통과하며 회피 표시!
+          if (this.player.isRollInvulnerable()) {
+            if (!sb.dodged) {
+              sb.dodged = true;
+              if (sb.id) this.processedHitIds.add(sb.id);
+              this.particles.addFloatingText(this.player.x, this.player.y - 60, '회피!', '#bae6fd');
+              if (this.mode === 'MULTIPLAYER') {
+                this.network.sendDodge(this.player.hp, sb.id);
+              }
+            }
+            continue;
+          }
+
+          // 이미 네트워크 이벤트로 처리된 투사체면 중복 데미지 방지
+          if (sb.id && this.processedHitIds.has(sb.id)) {
             sb.explode(this.particles, this.sound, true);
-            this.triggerCameraShake(6, 0.15);
             this.snowballs.splice(i, 1);
             continue;
           }
+          if (sb.id) this.processedHitIds.add(sb.id);
+
+          const applied = this.player.takeDamage(sb.damage, sb.x, this.particles, this.sound);
+          if (applied) {
+            sb.explode(this.particles, this.sound, true);
+            this.triggerCameraShake(8, 0.2);
+            this.snowballs.splice(i, 1);
+            continue;
+          }
+        }
+      }
+
+      // 적 피격 판정 (플레이어가 쏜 눈덩이)
+      if (sb.owner === 'player' && !this.matchResult) {
+        if (this.mode === 'MULTIPLAYER' && this.opponent && !this.opponent.isDead) {
+          const oDist = Math.hypot(sb.x - this.opponent.x, sb.y - (this.opponent.y - 40));
+          if (oDist < sb.radius + 30) {
+            // 상대방이 구르기 중이면 내 화면에서도 눈덩이가 폭발하지 않고 통과하며 '회피!' 표시!
+            if (this.opponent.isRollInvulnerable()) {
+              if (!sb.dodged) {
+                sb.dodged = true;
+                this.particles.addFloatingText(this.opponent.x, this.opponent.y - 60, '회피!', '#bae6fd');
+              }
+              continue;
+            }
+
+            const applied = this.opponent.takeDamage(sb.damage, sb.x, this.particles, this.sound);
+            if (applied) {
+              // 상대방에게 피격 판정 확인 전송 (상대방이 구르기 중이었다면 SYNC_DODGE로 롤백됨)
+              this.network.sendHitCheck(sb.damage, sb.x, sb.id);
+              sb.explode(this.particles, this.sound, true);
+              this.triggerCameraShake(6, 0.15);
+              this.snowballs.splice(i, 1);
+              continue;
+            }
+          }
         } else if (this.mode === 'TRAINING' && !this.bot.isDead) {
           const bDist = Math.hypot(sb.x - this.bot.x, sb.y - (this.bot.y - 40));
-          if (bDist < sb.radius + 32) {
+          if (bDist < sb.radius + 30) {
             this.bot.takeDamage(sb.damage, sb.x, this.particles, this.sound);
             sb.explode(this.particles, this.sound, true);
             this.triggerCameraShake(6, 0.15);

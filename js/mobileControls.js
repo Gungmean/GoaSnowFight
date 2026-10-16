@@ -206,7 +206,7 @@ class MobileControls {
     // 2-1. [눈덩이 던지기] 차징 & 드래그 조준 버튼
     if (this.btnThrow) {
       const startThrow = (clientX, clientY, touchId) => {
-        if (!this.enabled || !this.game.isRunning) return;
+        if (!this.enabled || !this.game.canPlayerAct()) return;
         this.game.sound.unlock();
         this.activeThrowTouchId = touchId;
         this.throwOriginX = clientX;
@@ -245,6 +245,12 @@ class MobileControls {
         this.activeThrowTouchId = null;
         this.game.isMouseDown = false;
         this.btnThrow.classList.remove('charging');
+
+        if (!this.game.canPlayerAct()) {
+          this.game.player.isCharging = false;
+          this.game.player.chargeRatio = 0;
+          return;
+        }
 
         const sb = this.game.player.releaseCharge(
           this.game.snowballs,
@@ -302,7 +308,7 @@ class MobileControls {
     if (this.btnRoll) {
       const doRoll = (e) => {
         e.preventDefault();
-        if (!this.game.isRunning) return;
+        if (!this.game.canPlayerAct()) return;
         this.game.sound.unlock();
         this.game.player.triggerRoll();
       };
@@ -314,18 +320,18 @@ class MobileControls {
     if (this.btnQ) {
       const doQ = (e) => {
         e.preventDefault();
-        if (!this.game.isRunning) return;
+        if (!this.game.canPlayerAct()) return;
         this.game.sound.unlock();
         const target = this.getAutoTargetCoords();
-        const ok = this.game.player.skillManager.castQ(
+        const res = this.game.player.skillManager.castQ(
           target.x,
           target.y,
           this.game.snowballs,
           this.game.particles,
           this.game.sound
         );
-        if (ok && this.game.mode === 'MULTIPLAYER') {
-          this.game.network.sendSkill('q', { targetX: target.x, targetY: target.y });
+        if (res && this.game.mode === 'MULTIPLAYER') {
+          this.game.network.sendSkill('q', res);
         }
       };
       this.btnQ.addEventListener('touchstart', doQ, { passive: false });
@@ -336,17 +342,17 @@ class MobileControls {
     if (this.btnE) {
       const doE = (e) => {
         e.preventDefault();
-        if (!this.game.isRunning) return;
+        if (!this.game.canPlayerAct()) return;
         this.game.sound.unlock();
         const target = this.getAutoTargetCoords(110);
-        const ok = this.game.player.skillManager.castE(
+        const res = this.game.player.skillManager.castE(
           target.x,
           target.y,
           this.game.particles,
           this.game.sound
         );
-        if (ok && this.game.mode === 'MULTIPLAYER') {
-          this.game.network.sendSkill('e', { targetX: target.x, targetY: target.y });
+        if (res && this.game.mode === 'MULTIPLAYER') {
+          this.game.network.sendSkill('e', res);
         }
       };
       this.btnE.addEventListener('touchstart', doE, { passive: false });
@@ -357,18 +363,18 @@ class MobileControls {
     if (this.btnRmb) {
       const doRmb = (e) => {
         e.preventDefault();
-        if (!this.game.isRunning) return;
+        if (!this.game.canPlayerAct()) return;
         this.game.sound.unlock();
         const target = this.getAutoTargetCoords();
-        const ok = this.game.player.skillManager.castRMB(
+        const res = this.game.player.skillManager.castRMB(
           target.x,
           target.y,
           this.game.snowballs,
           this.game.particles,
           this.game.sound
         );
-        if (ok && this.game.mode === 'MULTIPLAYER') {
-          this.game.network.sendSkill('rmb', { targetX: target.x, targetY: target.y });
+        if (res && this.game.mode === 'MULTIPLAYER') {
+          this.game.network.sendSkill('rmb', res);
         }
       };
       this.btnRmb.addEventListener('touchstart', doRmb, { passive: false });
@@ -384,7 +390,7 @@ class MobileControls {
     if (!canvas) return;
 
     canvas.addEventListener('touchstart', (e) => {
-      if (!this.enabled || !this.game.isRunning) return;
+      if (!this.enabled || !this.game.canPlayerAct()) return;
       // 우측 상단/중앙 등 조이스틱 영역 외 터치 시 캔버스 조준 & 투척 시작
       const t = e.changedTouches[0];
       const stageRect = canvas.getBoundingClientRect();
@@ -426,6 +432,11 @@ class MobileControls {
         if (e.changedTouches[i].identifier === this.activeCanvasTouchId) {
           this.activeCanvasTouchId = null;
           this.game.isMouseDown = false;
+          if (!this.game.canPlayerAct()) {
+            this.game.player.isCharging = false;
+            this.game.player.chargeRatio = 0;
+            break;
+          }
           const sb = this.game.player.releaseCharge(
             this.game.snowballs,
             this.game.particles,

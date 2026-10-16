@@ -1,6 +1,9 @@
 // snowball.js - 눈덩이 투사체 클래스
+let _nextSnowballSeq = 1;
+
 class Snowball {
   constructor({
+    id = null,
     x,
     y,
     dirX,
@@ -11,6 +14,7 @@ class Snowball {
     isSkill = false,
     skillType = null
   }) {
+    this.id = id || `sb_${Date.now()}_${_nextSnowballSeq++}`;
     this.startX = x;
     this.startY = y;
     this.x = x;
@@ -38,13 +42,14 @@ class Snowball {
     this.traveled = 0;
     this.rotation = Math.atan2(this.dirY, this.dirX);
     this.rotSpeed = 6 + this.chargeRatio * 10;
-    this.radius = 12 + this.chargeRatio * 8; // 충돌 반경
-    this.scale = 0.85 + this.chargeRatio * 0.55;
+    this.radius = skillType === 'rmb' ? 24 : (12 + this.chargeRatio * 8); // 충돌 반경
+    this.scale = skillType === 'rmb' ? 1.9 : (0.85 + this.chargeRatio * 0.55);
 
     // 포물선 점프 높이
     this.maxArcHeight = 25 + this.chargeRatio * 45;
 
     this.isDead = false;
+    this.dodged = false; // 구르기 회피 텍스트 중복 출력 방지
   }
 
   update(dt, particles, sound) {

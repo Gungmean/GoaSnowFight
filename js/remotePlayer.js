@@ -29,6 +29,11 @@ class RemotePlayer {
     // 구르기 상태
     this.isRolling = false;
     this.rollTimer = 0;
+    this.rollDuration = 0.42;
+    this.rollDirX = -1;
+    this.rollDirY = 0;
+    this.rollSpeed = 640;
+    this.rollGraceTimer = 0;
     this.ghosts = [];
 
     // 피격 상태
@@ -44,6 +49,50 @@ class RemotePlayer {
     this.activeBarriers = [];
   }
 
+  // 즉시 구르기 패킷(SYNC_ROLL) 수신 또는 상태 변화 시 발동
+  startNetworkRoll(msg = {}) {
+    if (this.isDead) return;
+    if (typeof msg.x === 'number') {
+      this.targetX = msg.x;
+      this.x = msg.x;
+    }
+    if (typeof msg.y === 'number') {
+      this.targetY = msg.y;
+      this.y = msg.y;
+    }
+    if (typeof msg.rollDirX === 'number') this.rollDirX = msg.rollDirX;
+    if (typeof msg.rollDirY === 'number') this.rollDirY = msg.rollDirY;
+    if (typeof msg.facing === 'number') this.facing = msg.facing;
+
+    if (!this.isRolling) {
+      if (window.sounds) window.sounds.playRoll();
+    }
+    this.isRolling = true;
+    this.rollTimer = 0;
+    this.rollGraceTimer = 0.15;
+    this.animName = 'roll';
+    this.animTimer = 0;
+    this.isCharging = false;
+    this.chargeRatio = 0;
+  }
+
+  isRollInvulnerable() {
+    return this.isRolling || this.rollGraceTimer > 0;
+  }
+
+  // 상대방이 구르기로 회피 성공 시 상태 동기화 (SYNC_DODGE)
+  onDodge(msg = {}, particles) {
+    if (typeof msg.hp === 'number' && !this.isDead) {
+      this.hp = msg.hp;
+    }
+    this.hitFlashTimer = 0;
+    this.knockbackX = 0;
+    this.knockbackY = 0;
+    if (particles) {
+      particles.addFloatingText(this.x, this.y - 60, '회피!', '#38bdf8', 18);
+    }
+  }
+
   // 네트워크 패킷 수신 시 상태 갱신
   applyNetworkState(state) {
     if (typeof state.x === 'number') this.targetX = state.x;
@@ -51,33 +100,58 @@ class RemotePlayer {
     if (typeof state.vx === 'number') this.vx = state.vx;
     if (typeof state.vy === 'number') this.vy = state.vy;
     if (typeof state.facing === 'number') this.facing = state.facing;
-    if (state.animName) this.animName = state.animName;
-    if (typeof state.animTimer === 'number') this.animTimer = state.animTimer;
-    if (typeof state.isCharging === 'boolean') this.isCharging = state.isCharging;
-    if (typeof state.chargeRatio === 'number') this.chargeRatio = state.chargeRatio;
+    if (typeof state.rollDirX === 'number') this.rollDirX = state.rollDirX;
+    if (typeof state.rollDirY === 'number') this.rollDirY = state.rollDirY;
+
+    // 이미 사망한 경우 패배 모션 고정 및 부활 차단
+    if (this.isDead) {
+      this.animName = 'lose';
+      this.isCharging = false;
+      this.isRolling = false;
+      return;
+    }
+
     if (typeof state.isRolling === 'boolean') {
-      const wasRolling = this.isRolling;
-      this.isRolling = state.isRolling;
-      if (!wasRolling && this.isRolling) {
-        if (window.sounds) window.sounds.playRoll();
+      if (state.isRolling && !this.isRolling) {
+        this.startNetworkRoll(state);
+      } else if (!state.isRolling && this.isRolling && this.rollTimer >= this.rollDuration * 0.85) {
+        this.isRolling = false;
+        this.rollGraceTimer = 0.12;
       }
     }
+
+    if (!this.isRolling) {
+      if (state.animName) this.animName = state.animName;
+      if (typeof state.animTimer === 'number') this.animTimer = state.animTimer;
+    }
+
+    if (typeof state.isCharging === 'boolean') this.isCharging = this.isRolling ? false : state.isCharging;
+    if (typeof state.chargeRatio === 'number') this.chargeRatio = state.chargeRatio;
+
     if (typeof state.hp === 'number') {
-      this.hp = state.hp;
+      // 사망 이후에는 HP가 다시 오르지 않도록 고정
+      this.hp = Math.min(this.hp, state.hp);
       if (this.hp <= 0 && !this.isDead) {
         this.isDead = true;
+        this.animName = 'lose';
+        this.isCharging = false;
+        this.isRolling = false;
       }
     }
   }
 
-  takeDamage(amount, fromX, particles, sound) {
-    if (this.isDead) return;
-    if (this.isRolling) {
+  takeDamage(amount, fromX, particles, sound, confirmedHp = null) {
+    if (this.isDead) return false;
+    if (this.isRollInvulnerable() && confirmedHp === null) {
       if (particles) particles.addFloatingText(this.x, this.y - 60, '회피!', '#38bdf8', 18);
-      return;
+      return false;
     }
 
-    this.hp = Math.max(0, this.hp - amount);
+    if (typeof confirmedHp === 'number') {
+      this.hp = Math.max(0, confirmedHp);
+    } else {
+      this.hp = Math.max(0, this.hp - amount);
+    }
     this.hitFlashTimer = 0.2;
 
     const kDir = this.x >= fromX ? 1 : -1;
@@ -90,31 +164,66 @@ class RemotePlayer {
 
     if (this.hp <= 0) {
       this.isDead = true;
+      this.isRolling = false;
+      this.isCharging = false;
       this.animName = 'lose';
       if (sound) sound.playDefeat();
       if (particles) particles.addFloatingText(this.x, this.y - 90, 'K.O!', '#dc2626', 28);
     }
+    return true;
   }
 
   update(dt, particles, sound, pingMs = 0) {
-    // 1. 데드 레코닝 (Dead Reckoning) 위치 외삽 예측 + LERP 보간
-    // 핑의 절반(편도 지연시간) 동안 상대가 이동했을 거리를 예측하여 화면 싱크를 실시간으로 맞춤
+    // 구르기 유예 타이머 감쇄
+    if (!this.isRolling && this.rollGraceTimer > 0) {
+      this.rollGraceTimer = Math.max(0, this.rollGraceTimer - dt);
+    }
+
+    // 1. 구르기 진행 중이면 구르기 물리 궤적 시뮬레이션 + 목표점 보간
+    if (this.isRolling && !this.isDead) {
+      this.rollTimer += dt;
+      this.animName = 'roll';
+      this.animTimer += dt;
+
+      const progress = Math.min(1, this.rollTimer / this.rollDuration);
+      const speedCurve = Math.sin((1 - progress) * Math.PI * 0.5) * 1.35 + 0.5;
+      this.targetX += this.rollDirX * this.rollSpeed * speedCurve * dt * 0.35;
+      this.targetY += this.rollDirY * this.rollSpeed * speedCurve * dt * 0.35;
+      this.targetX = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, this.targetX));
+      this.targetY = Math.max(this.bounds.minY, Math.min(this.bounds.maxY, this.targetY));
+
+      if (this.rollTimer >= this.rollDuration) {
+        this.isRolling = false;
+        this.rollGraceTimer = 0.12;
+        this.animName = 'idle';
+      }
+    }
+
+    // 2. 데드 레코닝 (Dead Reckoning) 위치 외삽 예측 + LERP 보간
     const latencySec = Math.max(0, Math.min(0.25, (pingMs / 2) / 1000));
     const predictedX = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, this.targetX + this.vx * latencySec));
     const predictedY = Math.max(this.bounds.minY, Math.min(this.bounds.maxY, this.targetY + this.vy * latencySec));
 
-    const lerpSpeed = 22; // 22로 상향하여 더욱 민첩하고 부드러운 위치 추종
+    const lerpSpeed = 22;
     this.x += (predictedX - this.x) * Math.min(1, lerpSpeed * dt);
     this.y += (predictedY - this.y) * Math.min(1, lerpSpeed * dt);
 
-    // 2. 피격 플래시 & 넉백 감쇄
+    // 3. 피격 플래시 & 넉백 감쇄
     if (this.hitFlashTimer > 0) this.hitFlashTimer -= dt;
     this.knockbackX *= Math.pow(0.01, dt);
     this.knockbackY *= Math.pow(0.01, dt);
     this.x += this.knockbackX * dt;
     this.y += this.knockbackY * dt;
 
-    // 3. 구르기 시 잔상 효과
+    this.x = Math.max(this.bounds.minX, Math.min(this.bounds.maxX, this.x));
+    this.y = Math.max(this.bounds.minY, Math.min(this.bounds.maxY, this.y));
+
+    // 사망 시 패배 모션 고정
+    if (this.isDead) {
+      this.animName = 'lose';
+    }
+
+    // 4. 구르기 시 잔상 효과
     if (this.isRolling) {
       if (Math.random() < 0.65) {
         this.ghosts.push({
@@ -130,13 +239,13 @@ class RemotePlayer {
       }
     }
 
-    // 4. 잔상 감쇄
+    // 5. 잔상 감쇄
     for (let i = this.ghosts.length - 1; i >= 0; i--) {
       this.ghosts[i].alpha -= dt * 3.5;
       if (this.ghosts[i].alpha <= 0) this.ghosts.splice(i, 1);
     }
 
-    // 5. 방벽(E 스킬) 지속시간 감쇄
+    // 6. 방벽(E 스킬) 지속시간 감쇄
     for (let i = this.activeBarriers.length - 1; i >= 0; i--) {
       const b = this.activeBarriers[i];
       b.duration -= dt;
@@ -147,7 +256,9 @@ class RemotePlayer {
     }
 
     // 애니메이션 타이머
-    this.animTimer += dt;
+    if (!this.isRolling) {
+      this.animTimer += dt;
+    }
   }
 
   draw(ctx, spriteManager) {

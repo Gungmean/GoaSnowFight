@@ -349,38 +349,38 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 9-2. 하단 HUD 스킬 슬롯 터치/클릭 즉시 발동 지원
   if (slotRoll) {
     slotRoll.addEventListener('click', () => {
-      if (!game.isRunning) return;
+      if (!game.canPlayerAct()) return;
       window.sounds.playClick();
       game.player.triggerRoll();
     });
   }
   if (slotQ) {
     slotQ.addEventListener('click', () => {
-      if (!game.isRunning) return;
+      if (!game.canPlayerAct()) return;
       const target = mobileControls.getAutoTargetCoords();
-      const ok = game.player.skillManager.castQ(target.x, target.y, game.snowballs, game.particles, game.sound);
-      if (ok && game.mode === 'MULTIPLAYER') {
-        game.network.sendSkill('q', { targetX: target.x, targetY: target.y });
+      const res = game.player.skillManager.castQ(target.x, target.y, game.snowballs, game.particles, game.sound);
+      if (res && game.mode === 'MULTIPLAYER') {
+        game.network.sendSkill('q', res);
       }
     });
   }
   if (slotE) {
     slotE.addEventListener('click', () => {
-      if (!game.isRunning) return;
+      if (!game.canPlayerAct()) return;
       const target = mobileControls.getAutoTargetCoords(110);
-      const ok = game.player.skillManager.castE(target.x, target.y, game.particles, game.sound);
-      if (ok && game.mode === 'MULTIPLAYER') {
-        game.network.sendSkill('e', { targetX: target.x, targetY: target.y });
+      const res = game.player.skillManager.castE(target.x, target.y, game.particles, game.sound);
+      if (res && game.mode === 'MULTIPLAYER') {
+        game.network.sendSkill('e', res);
       }
     });
   }
   if (slotRmb) {
     slotRmb.addEventListener('click', () => {
-      if (!game.isRunning) return;
+      if (!game.canPlayerAct()) return;
       const target = mobileControls.getAutoTargetCoords();
-      const ok = game.player.skillManager.castRMB(target.x, target.y, game.snowballs, game.particles, game.sound);
-      if (ok && game.mode === 'MULTIPLAYER') {
-        game.network.sendSkill('rmb', { targetX: target.x, targetY: target.y });
+      const res = game.player.skillManager.castRMB(target.x, target.y, game.snowballs, game.particles, game.sound);
+      if (res && game.mode === 'MULTIPLAYER') {
+        game.network.sendSkill('rmb', res);
       }
     });
   }

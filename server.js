@@ -66,27 +66,33 @@ let nextPlayerId = 1;
 function mirrorPacketForOpponent(data) {
   const mirrored = { ...data };
 
-  // X 좌표 반전
+  // X 좌표계 반전 (0 ~ 1672 거울 대칭)
   if (typeof mirrored.x === 'number') {
     mirrored.x = VIRTUAL_WIDTH - mirrored.x;
   }
-  // X 속도 반전
-  if (typeof mirrored.vx === 'number') {
-    mirrored.vx = -mirrored.vx;
+  if (typeof mirrored.targetX === 'number') {
+    mirrored.targetX = VIRTUAL_WIDTH - mirrored.targetX;
   }
-  // 시선/바라보는 방향 반전 (1 <-> -1)
-  if (typeof mirrored.facing === 'number') {
-    mirrored.facing = -mirrored.facing;
+  if (typeof mirrored.fromX === 'number') {
+    mirrored.fromX = VIRTUAL_WIDTH - mirrored.fromX;
   }
-  // 투척/발사 X 방향 반전
-  if (typeof mirrored.dirX === 'number') {
-    mirrored.dirX = -mirrored.dirX;
+  if (typeof mirrored.bx === 'number') {
+    mirrored.bx = VIRTUAL_WIDTH - mirrored.bx;
   }
-  // 에임 조준선 X 반전
   if (typeof mirrored.aimX === 'number') {
     mirrored.aimX = VIRTUAL_WIDTH - mirrored.aimX;
   }
-  // 구르기 X 방향 반전
+
+  // X 방향 벡터 및 속도 반전
+  if (typeof mirrored.vx === 'number') {
+    mirrored.vx = -mirrored.vx;
+  }
+  if (typeof mirrored.facing === 'number') {
+    mirrored.facing = -mirrored.facing;
+  }
+  if (typeof mirrored.dirX === 'number') {
+    mirrored.dirX = -mirrored.dirX;
+  }
   if (typeof mirrored.rollDirX === 'number') {
     mirrored.rollDirX = -mirrored.rollDirX;
   }
@@ -276,12 +282,16 @@ wss.on('connection', (ws) => {
         break;
       }
 
-      // 6. 인게임 상태 패킷 중계 (위치, 투사체, 스킬 등)
+      // 6. 인게임 상태 패킷 중계 (위치, 투사체, 스킬, 구르기, 피격/회피 등)
       //    핵심: 송신자가 보낸 좌표를 상대방에게는 철권식 시점 미러링(좌우 반전)하여 전달!
       case 'SYNC_STATE':
+      case 'SYNC_ROLL':
       case 'SYNC_THROW':
       case 'SYNC_SKILL':
       case 'SYNC_DAMAGE':
+      case 'SYNC_HIT_CHECK':
+      case 'SYNC_DODGE':
+      case 'SYNC_BARRIER_HIT':
       case 'SYNC_EMOTE': {
         if (!ws.currentRoomId || !activeRooms.has(ws.currentRoomId)) return;
         const room = activeRooms.get(ws.currentRoomId);

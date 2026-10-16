@@ -66,25 +66,32 @@ class SkillManager {
   // Q 스킬 발동 (트리플 눈덩이)
   castQ(targetX, targetY, snowballs, particles, sound) {
     const sk = this.skills.q;
-    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead) {
+    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead || this.player.isRolling) {
       if (sound && (sk.currentCooldown > 0 || this.player.cost < sk.cost)) sound.playDeny();
       return false;
     }
 
     this.player.cost -= sk.cost;
     sk.currentCooldown = sk.cooldown;
+    this.player.isCharging = false;
+    this.player.chargeRatio = 0;
+
     if (sound) sound.playSkillCast();
     if (particles) particles.addFloatingText(this.player.x, this.player.y - 70, 'Q 스킬!', '#67e8f9');
 
+    const spawnX = Math.round(this.player.x);
+    const spawnY = Math.round(this.player.y - 20);
+
     // 각도 계산 및 3갈래 발사 (-15도, 0도, +15도)
-    const baseAngle = Math.atan2(targetY - this.player.y, targetX - this.player.x);
+    const baseAngle = Math.atan2(targetY - spawnY, targetX - spawnX);
     const spreads = [-0.22, 0, 0.22];
+    const ids = [];
 
     spreads.forEach(angleOffset => {
       const a = baseAngle + angleOffset;
       const sb = new Snowball({
-        x: this.player.x,
-        y: this.player.y - 20,
+        x: spawnX,
+        y: spawnY,
         dirX: Math.cos(a),
         dirY: Math.sin(a),
         chargeRatio: 0.65,
@@ -93,23 +100,34 @@ class SkillManager {
         isSkill: true,
         skillType: 'q'
       });
+      ids.push(sb.id);
       snowballs.push(sb);
     });
 
+    this.player.facing = targetX >= spawnX ? 1 : -1;
     this.player.triggerThrowMotion();
-    return true;
+    return {
+      x: spawnX,
+      y: spawnY,
+      targetX: Math.round(targetX),
+      targetY: Math.round(targetY),
+      ids
+    };
   }
 
   // E 스킬 발동 (눈사람 방벽 설치)
   castE(targetX, targetY, particles, sound) {
     const sk = this.skills.e;
-    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead) {
+    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead || this.player.isRolling) {
       if (sound && (sk.currentCooldown > 0 || this.player.cost < sk.cost)) sound.playDeny();
       return false;
     }
 
     this.player.cost -= sk.cost;
     sk.currentCooldown = sk.cooldown;
+    this.player.isCharging = false;
+    this.player.chargeRatio = 0;
+
     if (sound) sound.playSkillCast();
     if (particles) particles.addFloatingText(this.player.x, this.player.y - 70, '빙벽 소환!', '#38bdf8');
 
@@ -120,10 +138,12 @@ class SkillManager {
     let by = this.player.y + Math.sin(angle) * dist;
 
     // 플레이어 구역 내부로 클램핑 (x: 150 ~ 780, y: 220 ~ 680)
-    bx = Math.max(150, Math.min(780, bx));
-    by = Math.max(220, Math.min(680, by));
+    bx = Math.round(Math.max(150, Math.min(780, bx)));
+    by = Math.round(Math.max(220, Math.min(680, by)));
 
+    const barrierId = `bar_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
     this.activeBarriers.push({
+      id: barrierId,
       x: bx,
       y: by,
       w: 48,
@@ -137,28 +157,39 @@ class SkillManager {
     if (particles) {
       particles.createSnowExplosion(bx, by, 18, 1);
     }
-    return true;
+    return {
+      barrierId,
+      bx,
+      by,
+      targetX: Math.round(targetX),
+      targetY: Math.round(targetY)
+    };
   }
 
   // 우클릭 스킬 발동 (메가 눈폭탄)
   castRMB(targetX, targetY, snowballs, particles, sound) {
     const sk = this.skills.rmb;
-    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead) {
+    if (sk.currentCooldown > 0 || this.player.cost < sk.cost || this.player.isDead || this.player.isRolling) {
       if (sound && (sk.currentCooldown > 0 || this.player.cost < sk.cost)) sound.playDeny();
       return false;
     }
 
     this.player.cost -= sk.cost;
     sk.currentCooldown = sk.cooldown;
+    this.player.isCharging = false;
+    this.player.chargeRatio = 0;
+
     if (sound) sound.playSkillCast();
     if (particles) particles.addFloatingText(this.player.x, this.player.y - 70, '메가 눈폭탄!', '#f59e0b');
 
-    const dirX = targetX - this.player.x;
-    const dirY = targetY - this.player.y;
+    const spawnX = Math.round(this.player.x);
+    const spawnY = Math.round(this.player.y - 20);
+    const dirX = targetX - spawnX;
+    const dirY = targetY - spawnY;
 
     const sb = new Snowball({
-      x: this.player.x,
-      y: this.player.y - 20,
+      x: spawnX,
+      y: spawnY,
       dirX,
       dirY,
       chargeRatio: 1.0,
@@ -167,13 +198,17 @@ class SkillManager {
       isSkill: true,
       skillType: 'rmb'
     });
-    // 추가 크기 및 폭발력
-    sb.radius = 24;
-    sb.scale = 1.9;
     snowballs.push(sb);
 
+    this.player.facing = targetX >= spawnX ? 1 : -1;
     this.player.triggerThrowMotion();
-    return true;
+    return {
+      sbId: sb.id,
+      x: spawnX,
+      y: spawnY,
+      targetX: Math.round(targetX),
+      targetY: Math.round(targetY)
+    };
   }
 
   drawBarriers(ctx) {
