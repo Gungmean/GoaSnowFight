@@ -746,6 +746,8 @@ wss.on('connection', (ws) => {
       case 'SYNC_EMOTE': {
         if (!ws.currentRoomId || !activeRooms.has(ws.currentRoomId)) return;
         const room = activeRooms.get(ws.currentRoomId);
+        // 라운드가 종료된 후 재대결 대기 중에는 사망/패배 상태 패킷의 상대방 전송을 차단하여 다음 라운드 오염 방지
+        if (room.roundFinished && msg.type === 'SYNC_STATE') return;
         const opponent = ws.playerRole === 'p1' ? room.p2 : room.p1;
 
         if (opponent && opponent.ws && opponent.ws.readyState === WebSocket.OPEN) {

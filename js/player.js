@@ -280,6 +280,8 @@ class Player {
   respawn(particles, sound) {
     this.hp = this.maxHp;
     this.isDead = false;
+    this.animName = 'idle';
+    this.animTimer = 0;
     this.respawnTimer = 0;
     this.ammo = this.maxAmmo;
     this.currentRollCooldown = 0;
@@ -290,6 +292,7 @@ class Player {
     this.y = 450;
     this.vx = 0;
     this.vy = 0;
+    this.facing = 1;
     this.knockbackX = 0;
     this.knockbackY = 0;
     this.isRolling = false;

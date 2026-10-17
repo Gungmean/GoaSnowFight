@@ -112,6 +112,7 @@ class NetworkManager {
         this.currentRoomId = msg.roomId;
         this.myRole = msg.role;
         this.opponentName = msg.opponentName || '2P 상대방';
+        this.round = msg.round || 1;
         if (this.onMatchStart) {
           this.onMatchStart({
             roomId: msg.roomId,
@@ -231,6 +232,7 @@ class NetworkManager {
 
     this.send({
       type: 'SYNC_STATE',
+      round: this.round || 1,
       x: Math.round(player.x),
       y: Math.round(player.y),
       vx: Math.round(player.vx),

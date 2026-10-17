@@ -93,8 +93,66 @@ class RemotePlayer {
     }
   }
 
+  // 재대결 또는 라운드 시작 시 원격 플레이어 상태 리셋
+  respawn({ x = 1250, y = 450, hp = 5, name = null, round = 1 } = {}) {
+    this.x = x;
+    this.y = y;
+    this.targetX = x;
+    this.targetY = y;
+    this.vx = 0;
+    this.vy = 0;
+    this.facing = -1;
+    if (name) this.name = name;
+    this.round = round;
+    this.hp = hp;
+    this.isDead = false;
+    this.animName = 'idle';
+    this.animTimer = 0;
+    this.isRolling = false;
+    this.rollTimer = 0;
+    this.rollGraceTimer = 0;
+    this.isCharging = false;
+    this.chargeRatio = 0;
+    this.hitFlashTimer = 0;
+    this.knockbackX = 0;
+    this.knockbackY = 0;
+    this.activeBarriers = [];
+  }
+
   // 네트워크 패킷 수신 시 상태 갱신
   applyNetworkState(state) {
+    if (!state) return;
+
+    // 이전 라운드의 지연된 패킷이면 무시
+    if (typeof state.round === 'number' && typeof this.round === 'number' && state.round < this.round) {
+      return;
+    }
+
+    if (typeof state.hp === 'number') {
+      if (state.hp > 0) {
+        this.hp = state.hp;
+        if (this.isDead) {
+          // 재대결 등으로 부활한 경우 상태 정상 복원
+          this.isDead = false;
+          this.animName = state.animName || 'idle';
+        }
+      } else {
+        this.hp = 0;
+        this.isDead = true;
+        this.animName = 'lose';
+        this.isCharging = false;
+        this.isRolling = false;
+      }
+    }
+
+    // 이미 사망한 경우 위치/행동을 갱신하지 않고 패배 모션 고정
+    if (this.isDead) {
+      this.animName = 'lose';
+      this.isCharging = false;
+      this.isRolling = false;
+      return;
+    }
+
     if (typeof state.x === 'number') this.targetX = state.x;
     if (typeof state.y === 'number') this.targetY = state.y;
     if (typeof state.vx === 'number') this.vx = state.vx;
@@ -102,14 +160,6 @@ class RemotePlayer {
     if (typeof state.facing === 'number') this.facing = state.facing;
     if (typeof state.rollDirX === 'number') this.rollDirX = state.rollDirX;
     if (typeof state.rollDirY === 'number') this.rollDirY = state.rollDirY;
-
-    // 이미 사망한 경우 패배 모션 고정 및 부활 차단
-    if (this.isDead) {
-      this.animName = 'lose';
-      this.isCharging = false;
-      this.isRolling = false;
-      return;
-    }
 
     if (typeof state.isRolling === 'boolean') {
       if (state.isRolling && !this.isRolling) {
@@ -127,17 +177,6 @@ class RemotePlayer {
 
     if (typeof state.isCharging === 'boolean') this.isCharging = this.isRolling ? false : state.isCharging;
     if (typeof state.chargeRatio === 'number') this.chargeRatio = state.chargeRatio;
-
-    if (typeof state.hp === 'number') {
-      // 사망 이후에는 HP가 다시 오르지 않도록 고정
-      this.hp = Math.min(this.hp, state.hp);
-      if (this.hp <= 0 && !this.isDead) {
-        this.isDead = true;
-        this.animName = 'lose';
-        this.isCharging = false;
-        this.isRolling = false;
-      }
-    }
   }
 
   takeDamage(amount, fromX, particles, sound, confirmedHp = null) {

@@ -77,8 +77,16 @@ class Game {
     this.network.onMatchStart = ({ role, opponentName, countdownSec, round, isRematch, myWins, oppWins, myRecord }) => {
       console.log(`[GAME] 1:1 대전 시작! (Round ${round || 1}) 내 역할: ${role}, 상대: ${opponentName}`);
       this.mode = 'MULTIPLAYER';
-      this.opponent = new RemotePlayer({ x: 1250, y: 460, name: opponentName });
+      this.round = round || 1;
+      if (this.network) {
+        this.network.round = this.round;
+      }
       this.player.respawn(null, null);
+      if (!this.opponent) {
+        this.opponent = new RemotePlayer({ x: 1250, y: 460, name: opponentName });
+      }
+      this.opponent.respawn({ x: 1250, y: 460, hp: 5, name: opponentName, round: this.round });
+
       // 멀티플레이에서는 항상 중앙 라인 활성화 및 영역 제한 강제
       this.showCenterLine = true;
       this.player.bounds.maxX = 800;
@@ -94,6 +102,9 @@ class Game {
       this.player.skillManager.activeBarriers = [];
       this.matchResult = null;
       this.matchCountdown = countdownSec || 3;
+
+      // 새 라운드 시작 즉시 내 온전한 상태를 상대에게 강제 전송
+      this.network.sendPlayerState(this.player, true);
 
       if (myRecord && typeof window.refreshMyRecordUI === 'function') {
         window.refreshMyRecordUI(myRecord);
@@ -728,6 +739,14 @@ class Game {
       } else {
         if (countNum) countNum.innerText = String(Math.ceil(this.matchCountdown));
       }
+
+      // 카운트다운 중에도 상대방과 플레이어가 온전한 상태로 서 있도록 동기화
+      if (this.mode === 'MULTIPLAYER') {
+        this.network.sendPlayerState(this.player);
+        if (this.opponent) {
+          this.opponent.update(dt, this.particles, this.sound, this.network ? this.network.ping : 0);
+        }
+      }
       return;
     }
 
@@ -747,17 +766,21 @@ class Game {
 
     // 2. 상대방(멀티) vs 더미 봇(훈련) 업데이트
     if (this.mode === 'MULTIPLAYER') {
-      this.network.sendPlayerState(this.player);
+      if (!this.matchResult) {
+        this.network.sendPlayerState(this.player);
+      }
       if (this.opponent) {
         this.opponent.update(dt, this.particles, this.sound, this.network ? this.network.ping : 0);
 
-        // 승패 체크
-        if (this.opponent.isDead && !this.matchResult) {
-          this.particles.addFloatingText(this.centerLineX, 360, 'VICTORY! 승리!', '#22c55e', 42);
-          this.triggerMatchEnd('VICTORY');
-        } else if (this.player.isDead && !this.matchResult) {
-          this.particles.addFloatingText(this.centerLineX, 360, 'DEFEAT... 패배', '#ef4444', 42);
-          this.triggerMatchEnd('DEFEAT');
+        // 승패 체크 (카운트다운 중이 아니고 매치 결과가 아직 없을 때만)
+        if (this.matchCountdown <= 0 && !this.matchResult) {
+          if (this.opponent.isDead) {
+            this.particles.addFloatingText(this.centerLineX, 360, 'VICTORY! 승리!', '#22c55e', 42);
+            this.triggerMatchEnd('VICTORY');
+          } else if (this.player.isDead) {
+            this.particles.addFloatingText(this.centerLineX, 360, 'DEFEAT... 패배', '#ef4444', 42);
+            this.triggerMatchEnd('DEFEAT');
+          }
         }
       }
     } else {
