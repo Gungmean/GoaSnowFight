@@ -1,9 +1,15 @@
-// sound.js - Web Audio API 기반 레트로 8-bit 사운드 합성기
+// sound.js - Web Audio API 기반 레트로 8-bit 사운드 합성기 및 BGM 플레이어
 class SoundManager {
   constructor() {
     this.ctx = null;
     this.muted = false;
     this.initialized = false;
+
+    // 배경음악 (startbgm.mp3)
+    this.bgm = new Audio('startbgm.mp3');
+    this.bgm.loop = true;
+    this.bgm.volume = 0.32;
+    this.bgmStarted = false;
   }
 
   init() {
@@ -24,10 +30,60 @@ class SoundManager {
     if (this.ctx && this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+    this.startBGM();
+  }
+
+  startBGM() {
+    if (this.muted || !this.bgm) return;
+    if (this.bgm.paused) {
+      const playPromise = this.bgm.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => {
+            this.bgmStarted = true;
+          })
+          .catch((err) => {
+            // 브라우저 정책(Autoplay restriction)으로 막힌 경우 사용자 인터랙션 대기
+            console.log('[BGM] Waiting for user interaction to autoplay:', err.message);
+          });
+      }
+    }
+  }
+
+  pauseBGM() {
+    if (this.bgm && !this.bgm.paused) {
+      this.bgm.pause();
+    }
+  }
+
+  resumeBGM() {
+    if (!this.muted && this.bgm && this.bgm.paused) {
+      this.bgm.play().catch(() => {});
+    }
+  }
+
+  stopBGM() {
+    if (this.bgm) {
+      this.bgm.pause();
+      this.bgm.currentTime = 0;
+      this.bgmStarted = false;
+    }
+  }
+
+  setBGMVolume(vol) {
+    if (this.bgm) {
+      this.bgm.volume = Math.max(0, Math.min(1, vol));
+    }
   }
 
   toggleMute() {
     this.muted = !this.muted;
+    if (this.bgm) {
+      this.bgm.muted = this.muted;
+      if (!this.muted && this.bgm.paused) {
+        this.bgm.play().catch(() => {});
+      }
+    }
     return this.muted;
   }
 

@@ -14,6 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnSkillDeck = document.getElementById('btn-skill-deck');
   const btnBackToTitle = document.getElementById('btn-back-to-title');
   const btnSoundToggle = document.getElementById('btn-sound-toggle');
+  const btnTitleSound = document.getElementById('btn-title-sound');
   const btnResetTraining = document.getElementById('btn-reset-training');
   const btnToggleLine = document.getElementById('btn-toggle-line');
 
@@ -523,12 +524,47 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
   }
 
-  // 9. 사운드 토글
-  btnSoundToggle.addEventListener('click', () => {
-    const isMuted = window.sounds.toggleMute();
-    btnSoundToggle.innerText = isMuted ? '🔇' : '🔊';
-    btnSoundToggle.title = isMuted ? '사운드 켜기' : '사운드 끄기';
-  });
+  // 9. 사운드 & BGM 토글 (인게임 및 타이틀 동기화)
+  function updateSoundButtons(isMuted) {
+    const icon = isMuted ? '🔇' : '🔊';
+    const title = isMuted ? '사운드 켜기' : '사운드 끄기';
+    if (btnSoundToggle) {
+      btnSoundToggle.innerText = icon;
+      btnSoundToggle.title = title;
+    }
+    if (btnTitleSound) {
+      btnTitleSound.innerText = icon;
+      btnTitleSound.title = title;
+    }
+  }
+
+  if (btnSoundToggle) {
+    btnSoundToggle.addEventListener('click', () => {
+      const isMuted = window.sounds.toggleMute();
+      updateSoundButtons(isMuted);
+    });
+  }
+
+  if (btnTitleSound) {
+    btnTitleSound.addEventListener('click', () => {
+      const isMuted = window.sounds.toggleMute();
+      updateSoundButtons(isMuted);
+    });
+  }
+
+  // 브라우저 정책 대응: 화면 어디든 첫 클릭/터치/키 입력 시 BGM 자동 재생 시작
+  const startAudioOnFirstInteraction = () => {
+    if (window.sounds) {
+      window.sounds.unlock();
+    }
+    window.removeEventListener('pointerdown', startAudioOnFirstInteraction);
+    window.removeEventListener('keydown', startAudioOnFirstInteraction);
+    window.removeEventListener('touchstart', startAudioOnFirstInteraction);
+  };
+  window.addEventListener('pointerdown', startAudioOnFirstInteraction, { passive: true });
+  window.addEventListener('keydown', startAudioOnFirstInteraction, { passive: true });
+  window.addEventListener('touchstart', startAudioOnFirstInteraction, { passive: true });
+
 
   // 9-1. 모바일 가상 조이스틱 토글 버튼
   const btnToggleMobile = document.getElementById('btn-toggle-mobile');

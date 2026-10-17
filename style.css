@@ -2207,5 +2207,37 @@ body.mobile-controls-active .cost-and-skills-wrapper {
   }
 }
 
+/* 타이틀 화면 우측 상단 사운드/BGM 버튼 */
+.title-sound-btn {
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: 44px;
+  height: 44px;
+  background: #1e293b;
+  border: 3px solid #000000;
+  border-radius: 6px;
+  box-shadow: 0 4px 0 #000000;
+  color: #ffffff;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 50;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.title-sound-btn:hover {
+  background: #334155;
+  transform: translateY(-2px);
+}
+
+.title-sound-btn:active {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 #000000;
+}
+
+
 
 
