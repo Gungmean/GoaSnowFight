@@ -1818,6 +1818,14 @@ body.mobile-controls-active .cost-and-skills-wrapper {
   text-align: center;
   letter-spacing: 0.5px;
   text-shadow: 1px 1px 0 #000000;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.title-record-badge:hover {
+  transform: translateY(-1px);
+  background: #172554;
+  border-color: #fde047;
 }
 
 .record-menu-btn {
@@ -2207,11 +2215,19 @@ body.mobile-controls-active .cost-and-skills-wrapper {
   }
 }
 
-/* 타이틀 화면 우측 상단 사운드/BGM 버튼 */
-.title-sound-btn {
+/* 타이틀 화면 우측 상단 유틸리티 액션 버튼 바 (전적 & 사운드/BGM) */
+.title-top-actions {
   position: absolute;
   top: 18px;
   right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  z-index: 50;
+}
+
+.title-action-btn,
+.title-sound-btn {
   width: 44px;
   height: 44px;
   background: #1e293b;
@@ -2224,19 +2240,46 @@ body.mobile-controls-active .cost-and-skills-wrapper {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  z-index: 50;
-  transition: transform 0.1s ease, background 0.15s ease;
+  transition: transform 0.1s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
+.title-action-btn:hover,
 .title-sound-btn:hover {
   background: #334155;
   transform: translateY(-2px);
+  border-color: #38bdf8;
 }
 
+.title-action-btn:active,
 .title-sound-btn:active {
   transform: translateY(2px);
   box-shadow: 0 1px 0 #000000;
 }
+
+#btn-title-records {
+  color: #facc15;
+}
+
+#btn-title-records:hover {
+  border-color: #facc15;
+  background: #1e293b;
+  box-shadow: 0 4px 0 #000000, 0 0 12px rgba(250, 204, 21, 0.45);
+}
+
+@media (max-width: 900px), (max-height: 520px) {
+  .title-top-actions {
+    top: 10px;
+    right: 12px;
+    gap: 8px;
+  }
+  .title-action-btn,
+  .title-sound-btn {
+    width: 38px;
+    height: 38px;
+    font-size: 17px;
+  }
+}
+
 
 
 

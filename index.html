@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>고아 눈싸움 - 1:1 도트 눈싸움 액션</title>
-  <link rel="stylesheet" href="style.css?v=20261017_1">
+  <link rel="stylesheet" href="style.css?v=20261017_2">
 </head>
 <body>
   <div id="game-container">
@@ -15,8 +15,11 @@
       <!-- 흩날리는 픽셀 눈 캔버스 -->
       <canvas id="title-snow-canvas"></canvas>
 
-      <!-- 타이틀 상단 사운드/BGM 토글 버튼 -->
-      <button type="button" id="btn-title-sound" class="title-sound-btn" title="사운드 ON/OFF">🔊</button>
+      <!-- 타이틀 상단 우측 유틸리티 버튼들 (전적/랭킹 & 사운드/BGM) -->
+      <div class="title-top-actions">
+        <button type="button" id="btn-title-records" class="title-action-btn" title="🏆 전적 &amp; 랭킹">🏆</button>
+        <button type="button" id="btn-title-sound" class="title-action-btn" title="사운드 ON/OFF">🔊</button>
+      </div>
 
       <div class="title-content">
         <!-- 메인 로고 -->
@@ -32,7 +35,7 @@
             <button type="button" id="btn-dice-nickname" class="nick-btn-dice" title="랜덤 닉네임 뽑기">🎲</button>
             <button type="button" id="btn-save-nickname" class="nick-btn-save" title="닉네임 저장">저장</button>
           </div>
-          <div id="title-my-record" class="title-record-badge">🏆 내 전적: 0승 0패 (승률 0%)</div>
+          <div id="title-my-record" class="title-record-badge" title="클릭하여 상세 전적 &amp; 랭킹 보기">🏆 내 전적: 0승 0패 (승률 0%)</div>
           <div id="nickname-save-toast" class="nickname-toast hidden">✓ 닉네임이 저장되었습니다!</div>
         </div>
 
@@ -43,9 +46,6 @@
           </button>
           <button id="btn-skill-deck" class="pixel-btn secondary-btn">
             <span class="btn-icon">⚡</span> 스킬 편성
-          </button>
-          <button id="btn-open-records" class="pixel-btn record-menu-btn">
-            <span class="btn-icon">🏆</span> 전적 & 랭킹
           </button>
         </div>
 

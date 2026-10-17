@@ -145,6 +145,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // ==========================================
   const titleMyRecord = document.getElementById('title-my-record');
   const modalRecords = document.getElementById('modal-records');
+  const btnTitleRecords = document.getElementById('btn-title-records');
   const btnOpenRecords = document.getElementById('btn-open-records');
   const btnCloseRecords = document.getElementById('btn-close-records');
   const btnRefreshRecords = document.getElementById('btn-refresh-records');
@@ -251,12 +252,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (playerNameLabel) playerNameLabel.innerText = `${curNickname} (1P)`;
   fetchServerRecords();
 
+  const openRecordsModal = () => {
+    if (window.sounds) window.sounds.playClick();
+    fetchServerRecords();
+    if (modalRecords) modalRecords.classList.remove('hidden');
+  };
+
+  if (btnTitleRecords) {
+    btnTitleRecords.addEventListener('click', openRecordsModal);
+  }
   if (btnOpenRecords) {
-    btnOpenRecords.addEventListener('click', () => {
-      if (window.sounds) window.sounds.playClick();
-      fetchServerRecords();
-      if (modalRecords) modalRecords.classList.remove('hidden');
-    });
+    btnOpenRecords.addEventListener('click', openRecordsModal);
+  }
+  if (titleMyRecord) {
+    titleMyRecord.addEventListener('click', openRecordsModal);
   }
   if (btnCloseRecords) {
     btnCloseRecords.addEventListener('click', () => {
