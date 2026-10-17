@@ -129,22 +129,24 @@ html, body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  background: rgba(15, 23, 42, 0.88);
+  background: rgba(15, 23, 42, 0.92);
   border: 3px solid #38bdf8;
   border-radius: 6px;
-  padding: 10px 16px;
+  padding: 12px 16px;
   margin-bottom: 20px;
   box-shadow: 0 6px 0 #0369a1, 0 10px 20px rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(4px);
   position: relative;
-  width: 320px;
+  width: 380px;
+  max-width: 92vw;
+  box-sizing: border-box;
 }
 
 .nickname-setting-bar .nick-label {
   font-size: 13px;
   color: #93c5fd;
   text-shadow: 1px 1px 0 #000;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
   display: flex;
   align-items: center;
   gap: 5px;
@@ -154,23 +156,27 @@ html, body {
 .nickname-setting-bar .nick-input-group {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .nickname-setting-bar .nick-input {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
   background: #0284c7;
   border: 2px solid #bae6fd;
   color: #ffffff;
   font-family: 'PixelFont', monospace;
-  font-size: 15px;
+  font-size: 16px;
   font-weight: bold;
   padding: 8px 10px;
   border-radius: 4px;
   outline: none;
   text-align: center;
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.4);
+  box-sizing: border-box;
 }
 
 .nickname-setting-bar .nick-input:focus {
@@ -182,6 +188,7 @@ html, body {
 .nickname-setting-bar .nick-btn-dice {
   width: 38px;
   height: 38px;
+  flex-shrink: 0;
   background: #334155;
   border: 2px solid #64748b;
   border-radius: 4px;
@@ -191,6 +198,7 @@ html, body {
   align-items: center;
   justify-content: center;
   transition: transform 0.1s, background 0.1s;
+  box-sizing: border-box;
 }
 
 .nickname-setting-bar .nick-btn-dice:hover {
@@ -204,19 +212,21 @@ html, body {
 }
 
 .nickname-setting-bar .nick-btn-save {
+  flex-shrink: 0;
   background: #10b981;
   border: 2px solid #a7f3d0;
   color: #ffffff;
   font-family: 'PixelFont', monospace;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: bold;
-  padding: 0 12px;
+  padding: 0 14px;
   height: 38px;
   border-radius: 4px;
   cursor: pointer;
   box-shadow: 0 3px 0 #047857;
   transition: transform 0.08s, background 0.08s;
   white-space: nowrap;
+  box-sizing: border-box;
 }
 
 .nickname-setting-bar .nick-btn-save:hover {
@@ -229,32 +239,38 @@ html, body {
   box-shadow: none;
 }
 
+/* 글로벌 최상단 토스트 알림 (어떤 모달이나 버튼에도 가려지지 않음) */
 .nickname-toast {
-  position: absolute;
-  bottom: -32px;
-  background: #059669;
+  position: fixed;
+  top: 36px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #047857;
   color: #ffffff;
   font-family: 'PixelFont', monospace;
-  font-size: 11px;
-  padding: 4px 10px;
-  border: 2px solid #a7f3d0;
-  border-radius: 4px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
-  animation: toastFade 0.25s ease-out;
+  font-size: 14px;
+  font-weight: bold;
+  padding: 10px 22px;
+  border: 3px solid #6ee7b7;
+  border-radius: 6px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.75), 0 0 16px rgba(16, 185, 129, 0.6);
+  animation: toastPop 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275);
   white-space: nowrap;
-  z-index: 20;
+  z-index: 99999;
+  pointer-events: none;
 }
 
-@keyframes toastFade {
-  0% { opacity: 0; transform: translateY(-4px); }
-  100% { opacity: 1; transform: translateY(0); }
+@keyframes toastPop {
+  0% { opacity: 0; transform: translate(-50%, -14px) scale(0.92); }
+  100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
 }
 
 .menu-buttons {
   display: flex;
   flex-direction: column;
   gap: 16px;
-  width: 320px;
+  width: 380px;
+  max-width: 92vw;
 }
 
 /* 픽셀 버튼 디자인 */
@@ -1807,18 +1823,23 @@ body.mobile-controls-active .cost-and-skills-wrapper {
    서버 저장 전적 요약 배지 & 랭킹 모달 & 재대결 오버레이
    ======================================================== */
 .title-record-badge {
-  margin-top: 6px;
-  padding: 5px 12px;
-  background: rgba(15, 23, 42, 0.9);
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 10px;
+  padding: 7px 12px;
+  background: rgba(15, 23, 42, 0.95);
   border: 2px solid #facc15;
   border-radius: 4px;
   color: #fde047;
   font-size: 12px;
   font-weight: bold;
   text-align: center;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.2px;
   text-shadow: 1px 1px 0 #000000;
   cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
 }
 
