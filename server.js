@@ -2,20 +2,125 @@ const http = require('http');
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
+const mongoose = require('mongoose');
+
+// .env 파일이 존재하면 환경변수로 자동 로드
+if (fs.existsSync(path.join(__dirname, '.env'))) {
+  try {
+    const envContent = fs.readFileSync(path.join(__dirname, '.env'), 'utf8');
+    envContent.split(/\r?\n/).forEach(line => {
+      const trimmed = line.trim();
+      if (trimmed && !trimmed.startsWith('#')) {
+        const eqIdx = trimmed.indexOf('=');
+        if (eqIdx > 0) {
+          const k = trimmed.slice(0, eqIdx).trim();
+          const v = trimmed.slice(eqIdx + 1).trim().replace(/^['"]|['"]$/g, '');
+          if (!process.env[k]) process.env[k] = v;
+        }
+      }
+    });
+  } catch (e) {}
+}
 
 const PORT = process.env.PORT || 3000;
 const VIRTUAL_WIDTH = 1672;
 
 // =========================================================================
-// 0. 웹 서버 전적 저장소 (data/records.json 영구 보존 + 메모리 캐시)
+// 0. 웹 서버 전적 저장소 (MongoDB Atlas 클라우드 DB + 로컬 JSON 캐시/폴백)
 // =========================================================================
 const DATA_DIR = path.join(__dirname, 'data');
 const RECORDS_FILE = path.join(DATA_DIR, 'records.json');
 
 let recordsDB = {
-  players: {},       // { [nickname]: { name, wins, losses, streak, bestStreak, updatedAt } }
-  recentMatches: []  // [ { winner, loser, mode, timestamp } ]
+  players: {},       // { [token]: { token, name, wins, losses, streak, bestStreak, updatedAt } }
+  recentMatches: []  // [ { winnerToken, winner, loserToken, loser, mode, round, timestamp } ]
 };
+
+let isMongoConnected = false;
+
+const PlayerSchema = new mongoose.Schema({
+  token: { type: String, required: true, unique: true, index: true },
+  name: { type: String, default: '눈싸움고수' },
+  wins: { type: Number, default: 0 },
+  losses: { type: Number, default: 0 },
+  streak: { type: Number, default: 0 },
+  bestStreak: { type: Number, default: 0 },
+  updatedAt: { type: Number, default: Date.now }
+});
+
+const MatchSchema = new mongoose.Schema({
+  winnerToken: String,
+  winner: String,
+  loserToken: String,
+  loser: String,
+  mode: String,
+  round: Number,
+  timestamp: { type: Number, default: Date.now }
+});
+
+const PlayerModel = mongoose.model('Player', PlayerSchema);
+const MatchModel = mongoose.model('Match', MatchSchema);
+
+async function initMongoDB() {
+  const uri = process.env.MONGODB_URI;
+  if (!uri) {
+    console.log('[DB] MONGODB_URI 미설정: 로컬 JSON 파일(data/records.json) 모드로 동작합니다.');
+    return;
+  }
+  try {
+    console.log('[DB] MongoDB Atlas 연결 시도 중...');
+    await mongoose.connect(uri, {
+      dbName: 'snowfight',
+      serverSelectionTimeoutMS: 5000
+    });
+    isMongoConnected = true;
+    console.log('[DB] MongoDB Atlas 클라우드 DB 연결 성공! (영구 전적 보존 활성화)');
+
+    // 1. DB에서 저장된 모든 플레이어 전적 불러와 메모리 캐시 적재
+    const dbPlayers = await PlayerModel.find({}).lean();
+    for (const p of dbPlayers) {
+      if (p.token) {
+        recordsDB.players[p.token] = {
+          token: p.token,
+          name: p.name || '눈싸움고수',
+          wins: p.wins || 0,
+          losses: p.losses || 0,
+          streak: p.streak || 0,
+          bestStreak: p.bestStreak || 0,
+          updatedAt: p.updatedAt || Date.now()
+        };
+      }
+    }
+
+    // 2. DB에서 최근 매치 불러오기
+    const dbMatches = await MatchModel.find({}).sort({ timestamp: -1 }).limit(30).lean();
+    if (dbMatches && dbMatches.length > 0) {
+      recordsDB.recentMatches = dbMatches.map(m => ({
+        winnerToken: m.winnerToken,
+        winner: m.winner,
+        loserToken: m.loserToken,
+        loser: m.loser,
+        mode: m.mode || 'quick',
+        round: m.round || 1,
+        timestamp: m.timestamp || Date.now()
+      }));
+    }
+
+    // 3. 만약 DB가 비어있고 로컬 캐시에 데이터가 있으면 초기 마이그레이션 실행
+    const localTokens = Object.keys(recordsDB.players);
+    if (dbPlayers.length === 0 && localTokens.length > 0) {
+      console.log(`[DB] 기존 로컬 전적 데이터 ${localTokens.length}건을 MongoDB Atlas로 업로드합니다...`);
+      for (const token of localTokens) {
+        await PlayerModel.updateOne({ token }, { $set: recordsDB.players[token] }, { upsert: true });
+      }
+    }
+
+    console.log(`[DB] 동기화 완료! 현재 등록 플레이어: ${Object.keys(recordsDB.players).length}명`);
+  } catch (err) {
+    console.error('[DB] MongoDB 연결 실패, 로컬 JSON 폴백 모드로 자동 전환:', err.message);
+    isMongoConnected = false;
+  }
+}
 
 function loadRecordsDB() {
   try {
@@ -53,6 +158,7 @@ function getOrCreatePlayerRecord(token, name) {
   const cleanToken = (token && typeof token === 'string' && token.trim()) ? token.trim().slice(0, 40) : null;
   const key = cleanToken || `guest_${cleanName}`;
 
+  let dirty = false;
   if (!recordsDB.players[key]) {
     recordsDB.players[key] = {
       token: key,
@@ -63,12 +169,20 @@ function getOrCreatePlayerRecord(token, name) {
       bestStreak: 0,
       updatedAt: Date.now()
     };
-    saveRecordsDB();
+    dirty = true;
   } else if (cleanName && recordsDB.players[key].name !== cleanName) {
     // 닉네임을 변경했더라도 고유 계정 코드를 통해 전적이 유지되고 표시 이름만 갱신!
     recordsDB.players[key].name = cleanName;
     recordsDB.players[key].updatedAt = Date.now();
+    dirty = true;
+  }
+
+  if (dirty) {
     saveRecordsDB();
+    if (isMongoConnected) {
+      PlayerModel.updateOne({ token: key }, { $set: recordsDB.players[key] }, { upsert: true })
+        .catch(e => console.error('[DB] 플레이어 갱신 실패:', e.message));
+    }
   }
 
   return formatPlayerRecord(recordsDB.players[key]);
@@ -157,6 +271,17 @@ function recordMatchOutcome(room, winnerRole) {
 
   saveRecordsDB();
 
+  if (isMongoConnected) {
+    PlayerModel.updateOne({ token: wToken }, { $set: recordsDB.players[wToken] }, { upsert: true })
+      .catch(e => console.error('[DB] 승자 전적 저장 실패:', e.message));
+    PlayerModel.updateOne({ token: lToken }, { $set: recordsDB.players[lToken] }, { upsert: true })
+      .catch(e => console.error('[DB] 패자 전적 저장 실패:', e.message));
+    if (recordsDB.recentMatches.length > 0) {
+      MatchModel.create(recordsDB.recentMatches[0])
+        .catch(e => console.error('[DB] 매치 기록 저장 실패:', e.message));
+    }
+  }
+
   const p1Key = room.p1.token || `guest_${room.p1.name}`;
   const p2Key = room.p2.token || `guest_${room.p2.name}`;
   const p1Record = formatPlayerRecord(recordsDB.players[p1Key]);
@@ -188,6 +313,7 @@ function recordMatchOutcome(room, winnerRole) {
 }
 
 loadRecordsDB();
+initMongoDB();
 
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
@@ -203,7 +329,7 @@ const MIME_TYPES = {
 };
 
 // 1. Static HTTP Server + REST API (/api/records)
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
   const parsedUrl = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
   let reqUrl = decodeURI(parsedUrl.pathname);
 
@@ -211,9 +337,28 @@ const server = http.createServer((req, res) => {
   if (reqUrl === '/api/records' && req.method === 'GET') {
     const token = (parsedUrl.searchParams.get('token') || '').trim().slice(0, 40);
     const playerName = (parsedUrl.searchParams.get('player') || '').trim().slice(0, 10);
-    const myRecord = token
-      ? getOrCreatePlayerRecord(token, playerName)
-      : (playerName ? getOrCreatePlayerRecord(null, playerName) : null);
+    const key = token || (playerName ? `guest_${playerName}` : null);
+
+    if (key && !recordsDB.players[key] && isMongoConnected) {
+      try {
+        const found = await PlayerModel.findOne({ token: key }).lean();
+        if (found) {
+          recordsDB.players[key] = {
+            token: found.token,
+            name: found.name || '눈싸움고수',
+            wins: found.wins || 0,
+            losses: found.losses || 0,
+            streak: found.streak || 0,
+            bestStreak: found.bestStreak || 0,
+            updatedAt: found.updatedAt || Date.now()
+          };
+        }
+      } catch (err) {
+        console.error('[DB] Player lookup error:', err.message);
+      }
+    }
+
+    const myRecord = key ? getOrCreatePlayerRecord(token, playerName) : null;
     const payload = {
       myRecord,
       leaderboard: getLeaderboard(20),

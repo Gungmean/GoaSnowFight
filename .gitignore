@@ -5,3 +5,4 @@ Thumbs.db
 *.tmp
 .system_generated/
 data/records.json
+.env
