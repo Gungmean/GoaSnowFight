@@ -449,6 +449,20 @@
             </div>
           </div>
 
+          <!-- 고유 계정 코드 & 기기 이전 섹션 -->
+          <div class="account-code-card">
+            <div class="acc-row">
+              <span class="acc-label">🔑 내 고유 계정 코드:</span>
+              <input type="text" id="acc-token-display" class="acc-token-input" readonly value="usr_..." title="내 고유 계정 코드 (사칭 방지)">
+              <button type="button" id="btn-copy-acc-token" class="pixel-btn secondary-btn acc-btn" title="계정 코드 복사">📋 복사</button>
+            </div>
+            <div class="acc-transfer-row">
+              <input type="text" id="acc-transfer-input" class="pixel-input acc-input" placeholder="이전할 계정 코드 붙여넣기 (usr_...)" autocomplete="off">
+              <button type="button" id="btn-apply-acc-token" class="pixel-btn primary-btn acc-btn" title="계정 불러오기">불러오기</button>
+            </div>
+            <div class="acc-hint">※ 닉네임을 변경해도 위 고유 코드로 전적이 유지되며, 타인이 같은 이름을 써도 사칭할 수 없습니다. 다른 기기에서는 위 코드로 전적을 불러오세요.</div>
+          </div>
+
           <div class="records-columns">
             <!-- 좌측: 다승 랭킹 TOP 리더보드 -->
             <div class="records-panel">

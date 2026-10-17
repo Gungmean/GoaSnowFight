@@ -48,10 +48,14 @@ function saveRecordsDB() {
   }
 }
 
-function getOrCreatePlayerRecord(name) {
+function getOrCreatePlayerRecord(token, name) {
   const cleanName = (name || '눈싸움고수').trim().slice(0, 10) || '눈싸움고수';
-  if (!recordsDB.players[cleanName]) {
-    recordsDB.players[cleanName] = {
+  const cleanToken = (token && typeof token === 'string' && token.trim()) ? token.trim().slice(0, 40) : null;
+  const key = cleanToken || `guest_${cleanName}`;
+
+  if (!recordsDB.players[key]) {
+    recordsDB.players[key] = {
+      token: key,
       name: cleanName,
       wins: 0,
       losses: 0,
@@ -59,8 +63,15 @@ function getOrCreatePlayerRecord(name) {
       bestStreak: 0,
       updatedAt: Date.now()
     };
+    saveRecordsDB();
+  } else if (cleanName && recordsDB.players[key].name !== cleanName) {
+    // 닉네임을 변경했더라도 고유 계정 코드를 통해 전적이 유지되고 표시 이름만 갱신!
+    recordsDB.players[key].name = cleanName;
+    recordsDB.players[key].updatedAt = Date.now();
+    saveRecordsDB();
   }
-  return formatPlayerRecord(recordsDB.players[cleanName]);
+
+  return formatPlayerRecord(recordsDB.players[key]);
 }
 
 function formatPlayerRecord(rec) {
@@ -69,6 +80,7 @@ function formatPlayerRecord(rec) {
   const total = wins + losses;
   const winRate = total > 0 ? Math.round((wins / total) * 100) : 0;
   return {
+    token: rec.token,
     name: rec.name,
     wins,
     losses,
@@ -108,14 +120,16 @@ function recordMatchOutcome(room, winnerRole) {
     room.p2Wins = (room.p2Wins || 0) + 1;
   }
 
+  const wToken = winnerObj.token || `guest_${winnerObj.name}`;
+  const lToken = loserObj.token || `guest_${loserObj.name}`;
   const wName = (winnerObj.name || '1P').trim().slice(0, 10);
   const lName = (loserObj.name || '2P').trim().slice(0, 10);
 
-  getOrCreatePlayerRecord(wName);
-  getOrCreatePlayerRecord(lName);
+  getOrCreatePlayerRecord(wToken, wName);
+  getOrCreatePlayerRecord(lToken, lName);
 
-  const wRec = recordsDB.players[wName];
-  const lRec = recordsDB.players[lName];
+  const wRec = recordsDB.players[wToken];
+  const lRec = recordsDB.players[lToken];
 
   wRec.wins += 1;
   wRec.streak = (wRec.streak || 0) + 1;
@@ -129,7 +143,9 @@ function recordMatchOutcome(room, winnerRole) {
   lRec.updatedAt = Date.now();
 
   recordsDB.recentMatches.unshift({
+    winnerToken: wToken,
     winner: wName,
+    loserToken: lToken,
     loser: lName,
     mode: room.mode || 'quick',
     round: room.round || 1,
@@ -141,8 +157,10 @@ function recordMatchOutcome(room, winnerRole) {
 
   saveRecordsDB();
 
-  const p1Record = formatPlayerRecord(recordsDB.players[room.p1.name]);
-  const p2Record = formatPlayerRecord(recordsDB.players[room.p2.name]);
+  const p1Key = room.p1.token || `guest_${room.p1.name}`;
+  const p2Key = room.p2.token || `guest_${room.p2.name}`;
+  const p1Record = formatPlayerRecord(recordsDB.players[p1Key]);
+  const p2Record = formatPlayerRecord(recordsDB.players[p2Key]);
 
   // 양쪽 플레이어에게 확정된 전적 및 세트 스코어 전송
   sendJson(room.p1.ws, {
@@ -165,7 +183,7 @@ function recordMatchOutcome(room, winnerRole) {
     oppRecord: p1Record
   });
 
-  console.log(`[RECORD SAVED] ${wName} defeated ${lName} (Round ${room.round}, Score ${room.p1Wins}:${room.p2Wins})`);
+  console.log(`[RECORD SAVED] ${wName} (${wToken}) defeated ${lName} (${lToken}) (Round ${room.round}, Score ${room.p1Wins}:${room.p2Wins})`);
   return { p1Record, p2Record };
 }
 
@@ -191,8 +209,11 @@ const server = http.createServer((req, res) => {
 
   // 전적 및 랭킹 조회 API
   if (reqUrl === '/api/records' && req.method === 'GET') {
+    const token = (parsedUrl.searchParams.get('token') || '').trim().slice(0, 40);
     const playerName = (parsedUrl.searchParams.get('player') || '').trim().slice(0, 10);
-    const myRecord = playerName ? getOrCreatePlayerRecord(playerName) : null;
+    const myRecord = token
+      ? getOrCreatePlayerRecord(token, playerName)
+      : (playerName ? getOrCreatePlayerRecord(null, playerName) : null);
     const payload = {
       myRecord,
       leaderboard: getLeaderboard(20),
@@ -264,8 +285,8 @@ const server = http.createServer((req, res) => {
 // 2. WebSocket Multiplayer Server (지연 시간 최소화: perMessageDeflate 비활성화)
 const wss = new WebSocket.Server({ server, perMessageDeflate: false });
 
-let matchQueue = []; // Quick match waiting queue: [ { ws, playerName, id } ]
-const privateRooms = new Map(); // roomCode (string) -> { host: { ws, playerName }, guest: null, id }
+let matchQueue = []; // Quick match waiting queue: [ { ws, playerName, token, id } ]
+const privateRooms = new Map(); // roomCode (string) -> { host: { ws, playerName, token }, guest: null, id }
 const activeRooms = new Map(); // roomId (string) -> { p1, p2, round, roundFinished, p1Wins, p2Wins, rematchVotes }
 
 let nextPlayerId = 1;
@@ -314,11 +335,13 @@ function sendJson(ws, obj) {
 }
 
 function startMatch(p1, p2, roomId, mode) {
-  const p1Name = (p1.playerName || '1P').trim().slice(0, 10) || '1P';
-  const p2Name = (p2.playerName || '2P').trim().slice(0, 10) || '2P';
+  const p1Name = (p1.playerName || p1.name || '1P').trim().slice(0, 10) || '1P';
+  const p2Name = (p2.playerName || p2.name || '2P').trim().slice(0, 10) || '2P';
+  const p1Token = p1.token || null;
+  const p2Token = p2.token || null;
 
-  const p1Record = getOrCreatePlayerRecord(p1Name);
-  const p2Record = getOrCreatePlayerRecord(p2Name);
+  const p1Record = getOrCreatePlayerRecord(p1Token, p1Name);
+  const p2Record = getOrCreatePlayerRecord(p2Token, p2Name);
 
   const room = {
     id: roomId,
@@ -329,8 +352,8 @@ function startMatch(p1, p2, roomId, mode) {
     p1Wins: 0,
     p2Wins: 0,
     rematchVotes: new Set(),
-    p1: { ws: p1.ws, name: p1Name, hp: 5 },
-    p2: { ws: p2.ws, name: p2Name, hp: 5 }
+    p1: { ws: p1.ws, token: p1Record.token, name: p1Name, hp: 5 },
+    p2: { ws: p2.ws, token: p2Record.token, name: p2Name, hp: 5 }
   };
   activeRooms.set(roomId, room);
 
@@ -373,7 +396,7 @@ function startMatch(p1, p2, roomId, mode) {
     countdownSec: 3
   });
 
-  console.log(`[MATCH STARTED] Room ${roomId}: ${p1Name} vs ${p2Name}`);
+  console.log(`[MATCH STARTED] Room ${roomId}: ${p1Name} (${p1Record.token}) vs ${p2Name} (${p2Record.token})`);
 }
 
 function startRematch(room) {
@@ -384,8 +407,8 @@ function startRematch(room) {
   room.p1.hp = 5;
   room.p2.hp = 5;
 
-  const p1Record = getOrCreatePlayerRecord(room.p1.name);
-  const p2Record = getOrCreatePlayerRecord(room.p2.name);
+  const p1Record = getOrCreatePlayerRecord(room.p1.token, room.p1.name);
+  const p2Record = getOrCreatePlayerRecord(room.p2.token, room.p2.name);
 
   sendJson(room.p1.ws, {
     type: 'MATCH_START',
@@ -490,17 +513,18 @@ wss.on('connection', (ws) => {
 
       // 1. 빠른 매칭 요청
       case 'JOIN_QUEUE': {
-        const playerName = (msg.playerName || '눈싸움고수').trim().slice(0, 10);
+        const playerName = (msg.playerName || msg.name || '눈싸움고수').trim().slice(0, 10);
+        const token = (msg.token && typeof msg.token === 'string') ? msg.token.trim().slice(0, 40) : null;
         matchQueue = matchQueue.filter(item => item.ws !== ws);
 
         if (matchQueue.length > 0) {
           const opponent = matchQueue.shift();
           const roomId = 'room_quick_' + Date.now();
-          startMatch(opponent, { ws, playerName, id: ws.id }, roomId, 'quick');
+          startMatch(opponent, { ws, playerName, token, id: ws.id }, roomId, 'quick');
         } else {
-          matchQueue.push({ ws, playerName, id: ws.id });
+          matchQueue.push({ ws, playerName, token, id: ws.id });
           sendJson(ws, { type: 'QUEUE_WAITING' });
-          console.log(`[QUEUE] ${playerName} (${ws.id}) waiting in queue (Total: ${matchQueue.length})`);
+          console.log(`[QUEUE] ${playerName} (${token || ws.id}) waiting in queue (Total: ${matchQueue.length})`);
         }
         break;
       }
@@ -514,7 +538,8 @@ wss.on('connection', (ws) => {
 
       // 3. 방 코드로 방 만들기
       case 'CREATE_ROOM': {
-        const playerName = (msg.playerName || '방장').trim().slice(0, 10);
+        const playerName = (msg.playerName || msg.name || '방장').trim().slice(0, 10);
+        const token = (msg.token && typeof msg.token === 'string') ? msg.token.trim().slice(0, 40) : null;
         let roomCode = '';
         do {
           roomCode = String(Math.floor(100000 + Math.random() * 900000));
@@ -522,20 +547,21 @@ wss.on('connection', (ws) => {
 
         privateRooms.set(roomCode, {
           code: roomCode,
-          host: { ws, playerName, id: ws.id },
+          host: { ws, playerName, token, id: ws.id },
           guest: null
         });
 
         ws.createdRoomCode = roomCode;
         sendJson(ws, { type: 'ROOM_CREATED', roomCode });
-        console.log(`[ROOM CREATED] Code: ${roomCode} by ${playerName}`);
+        console.log(`[ROOM CREATED] Code: ${roomCode} by ${playerName} (${token || ws.id})`);
         break;
       }
 
       // 4. 방 코드로 방 참가
       case 'JOIN_ROOM': {
         const code = String(msg.roomCode || '').trim();
-        const playerName = (msg.playerName || '도전자').trim().slice(0, 10);
+        const playerName = (msg.playerName || msg.name || '도전자').trim().slice(0, 10);
+        const token = (msg.token && typeof msg.token === 'string') ? msg.token.trim().slice(0, 40) : null;
 
         if (!privateRooms.has(code)) {
           sendJson(ws, { type: 'JOIN_ROOM_ERROR', message: '존재하지 않는 방 코드입니다.' });
@@ -550,7 +576,7 @@ wss.on('connection', (ws) => {
 
         privateRooms.delete(code);
         const roomId = 'room_code_' + code;
-        startMatch(roomData.host, { ws, playerName, id: ws.id }, roomId, 'code');
+        startMatch(roomData.host, { ws, playerName, token, id: ws.id }, roomId, 'code');
         break;
       }
 

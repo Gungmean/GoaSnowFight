@@ -176,23 +176,23 @@ class NetworkManager {
 
   // --- 플레이어 요청 메서드들 ---
 
-  joinQueue(playerName) {
+  joinQueue(playerName, token = null) {
     this.ensureConnected();
-    this.send({ type: 'JOIN_QUEUE', playerName });
+    this.send({ type: 'JOIN_QUEUE', playerName, token });
   }
 
   leaveQueue() {
     this.send({ type: 'LEAVE_QUEUE' });
   }
 
-  createRoom(playerName) {
+  createRoom(playerName, token = null) {
     this.ensureConnected();
-    this.send({ type: 'CREATE_ROOM', playerName });
+    this.send({ type: 'CREATE_ROOM', playerName, token });
   }
 
-  joinRoom(roomCode, playerName) {
+  joinRoom(roomCode, playerName, token = null) {
     this.ensureConnected();
-    this.send({ type: 'JOIN_ROOM', roomCode, playerName });
+    this.send({ type: 'JOIN_ROOM', roomCode, playerName, token });
   }
 
   cancelRoom() {

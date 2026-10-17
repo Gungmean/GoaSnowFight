@@ -110,6 +110,23 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
   window.getPlayerNickname = getPlayerNickname;
 
+  // ==========================================
+  // 고유 계정 식별 토큰 시스템 (사칭 방지 & 기기 이전)
+  // ==========================================
+  const ACCOUNT_TOKEN_KEY = 'snow_account_token';
+
+  function getOrCreateAccountToken() {
+    let token = localStorage.getItem(ACCOUNT_TOKEN_KEY);
+    if (!token || !token.trim()) {
+      const rand1 = Math.random().toString(36).substring(2, 10);
+      const rand2 = Math.random().toString(36).substring(2, 10);
+      token = `usr_${rand1}${rand2}`;
+      localStorage.setItem(ACCOUNT_TOKEN_KEY, token);
+    }
+    return token.trim();
+  }
+  window.getAccountToken = getOrCreateAccountToken;
+
   let toastTimer = null;
   function showNicknameToast(msg = '✓ 닉네임이 저장되었습니다!') {
     if (!nicknameToast) return;
@@ -188,10 +205,18 @@ document.addEventListener('DOMContentLoaded', async () => {
       .replace(/"/g, '&quot;');
   }
 
+  const accTokenDisplay = document.getElementById('acc-token-display');
+  const btnCopyAccToken = document.getElementById('btn-copy-acc-token');
+  const accTransferInput = document.getElementById('acc-transfer-input');
+  const btnApplyAccToken = document.getElementById('btn-apply-acc-token');
+
   async function fetchServerRecords() {
     const nick = getPlayerNickname();
+    const token = getOrCreateAccountToken();
+    if (accTokenDisplay) accTokenDisplay.value = token;
+
     try {
-      const res = await fetch(`/api/records?player=${encodeURIComponent(nick)}`);
+      const res = await fetch(`/api/records?token=${encodeURIComponent(token)}&player=${encodeURIComponent(nick)}`);
       if (!res.ok) return;
       const data = await res.json();
       if (data.myRecord) {
@@ -205,7 +230,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else {
           lbContainer.innerHTML = data.leaderboard.map((row, idx) => {
             const rankMedal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `${idx + 1}위`;
-            const isMe = row.name === nick;
+            const isMe = row.token === token;
             return `
               <div class="record-row ${isMe ? 'me' : ''}">
                 <span class="rec-rank">${rankMedal}</span>
@@ -244,6 +269,48 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
   window.fetchServerRecords = fetchServerRecords;
+
+  // 계정 코드 복사 버튼
+  if (btnCopyAccToken) {
+    btnCopyAccToken.addEventListener('click', () => {
+      const token = getOrCreateAccountToken();
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(token).then(() => {
+          showNicknameToast('✓ 계정 코드가 복사되었습니다!');
+          if (window.sounds) window.sounds.playClick();
+        }).catch(() => {
+          if (accTokenDisplay) {
+            accTokenDisplay.select();
+            document.execCommand('copy');
+            showNicknameToast('✓ 계정 코드가 복사되었습니다!');
+          }
+        });
+      } else if (accTokenDisplay) {
+        accTokenDisplay.select();
+        document.execCommand('copy');
+        showNicknameToast('✓ 계정 코드가 복사되었습니다!');
+      }
+    });
+  }
+
+  // 다른 기기 계정 코드 불러오기/이전 버튼
+  if (btnApplyAccToken) {
+    btnApplyAccToken.addEventListener('click', () => {
+      const inputVal = (accTransferInput ? accTransferInput.value : '').trim();
+      if (!inputVal || inputVal.length < 6) {
+        alert('올바른 계정 코드를 입력해주세요! (예: usr_...)');
+        return;
+      }
+      if (confirm('이 계정 코드로 전적을 불러오시겠습니까?')) {
+        localStorage.setItem(ACCOUNT_TOKEN_KEY, inputVal);
+        if (accTokenDisplay) accTokenDisplay.value = inputVal;
+        if (accTransferInput) accTransferInput.value = '';
+        showNicknameToast('✓ 계정 코드가 적용되었습니다!');
+        if (window.sounds) window.sounds.playClick();
+        fetchServerRecords();
+      }
+    });
+  }
 
   // 초기 닉네임 바인딩 및 서버 전적 로드
   const curNickname = getPlayerNickname();
@@ -375,7 +442,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     modalGameModes.classList.add('hidden');
     modalQuickMatch.classList.remove('hidden');
     startMatchSearchTimer();
-    game.network.joinQueue(getPlayerNickname());
+    game.network.joinQueue(getPlayerNickname(), getOrCreateAccountToken());
   });
 
   btnCancelMatch.addEventListener('click', () => {
@@ -405,7 +472,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('btn-create-room')?.addEventListener('click', () => {
     window.sounds.playClick();
-    game.network.createRoom(getPlayerNickname());
+    game.network.createRoom(getPlayerNickname(), getOrCreateAccountToken());
   });
 
   document.getElementById('btn-join-room')?.addEventListener('click', () => {
@@ -416,7 +483,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       alert('6자리 방 코드를 정확히 입력해주세요!');
       return;
     }
-    game.network.joinRoom(code, getPlayerNickname());
+    game.network.joinRoom(code, getPlayerNickname(), getOrCreateAccountToken());
   });
 
   // ==========================================
